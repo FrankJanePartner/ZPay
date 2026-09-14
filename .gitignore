@@ -1,0 +1,13 @@
+node_modules/
+dist/
+target/
+.vscode/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.backup
+*.pre-*
