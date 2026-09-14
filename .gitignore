@@ -7,7 +7,12 @@ target/
 !.env.example
 *.sqlite
 *.sqlite-*
+*.sqlite3
+*.sqlite3-*
 *.db
 *.db-*
 *.backup
 *.pre-*
+.venv/
+__pycache__/
+*.py[cod]
