@@ -94,3 +94,13 @@ class PaymentAPITests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["token"])
         self.assertEqual(self.client.post("/api/v1/auth/logout/").status_code, 204)
         self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_health_with_browser_accept_header(self):
+        self.client.credentials()
+        response = self.client.get(
+            "/health/",
+            HTTP_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertEqual(response.json()["service"], "ZPay API")
