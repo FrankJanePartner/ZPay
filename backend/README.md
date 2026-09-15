@@ -1,9 +1,9 @@
 # ZPay API — foundation
 
 This branch adds the API foundation alongside the existing desktop wallet.
-It is NOT yet a complete payment processor. Live address allocation, payment
-scanning/attribution, balances, transaction history, signed webhooks, withdrawals,
-dashboard UI and deployment are still pending. No endpoint accepts client claims
+Live address allocation and a mined-deposit scanner, balances and received-output
+history are implemented. Signed webhooks, withdrawals, dashboard UI, deployment
+and live end-to-end validation are still pending. No endpoint accepts client claims
 that a payment has been made. No mock addresses are used outside tests.
 
 ## Local setup (Windows PowerShell)
@@ -70,16 +70,14 @@ The Rust service MUST persistently allocate exactly one address per
 responses. It must bind the address to the correct merchant wallet, validate
 the network and address receivers through Zcash libraries, back up recoverable
 key material before returning an address, and expose no seeds in HTTP responses.
-The current Python adapter is not evidence this Rust contract is implemented.
+The companion wallet-service implements allocation and scanning using the pinned SDK.
 
 ## Next delivery gates
 
-1. Extract Rust wallet runtime from Tauri; persistent allocation and encrypted
-   secret storage, configurable testnet/mainnet and scan checkpoints.
-2. Ingest verified per-output deposits; deduplicate by transaction/pool/output,
-   handle confirmations/reorgs and pending vs confirmed accounting.
-3. Add late/partial/excess payment handling, outbox and signed webhook retries.
-4. Add account dashboard and complete real network integration tests.
+1. Validate live receipt, address attribution and recovery against the local node.
+2. Add configurable testnet support and exercise real chain reorganizations.
+3. Add outbox and signed webhook retries, then withdrawals with an explicit policy.
+4. Add the account dashboard.
 5. Deploy behind HTTPS with PostgreSQL, shared rate limiting, monitoring,
    backup/restore verification and a continuously running wallet scanner.
 
@@ -104,3 +102,40 @@ the UI loads OpenAPI from `/?schema=1`. Examples contain fictional credentials.
 Swagger assets are bundled with drf-spectacular-sidecar, not fetched from a CDN.
 For deployment, run `python manage.py collectstatic --noinput` and serve STATIC_ROOT
 at STATIC_URL through the deployment's static file server.
+
+### Deposit scanning and history
+
+Keep the Rust service and lightwalletd running. In a separate terminal, configure
+ZPAY_DEBUG, ZPAY_WALLET_URL and ZPAY_WALLET_TOKEN as for Django, then run:
+
+```
+python manage.py migrate
+python manage.py sync_wallets --once
+python manage.py sync_wallets --interval 30
+```
+
+The worker scans only accounts with allocated addresses. Each merchant scan has a
+120-second service timeout; large backlogs may require repeated scans. A complete
+scan atomically replaces active mined observations. Failures preserve the prior
+snapshot and mark it stale. Run one worker; per-account database leases also prevent
+overlapping imports. The service serializes sync with allocation, so address requests
+may need idempotent retries while a scan runs. This is an MVP throughput limitation.
+
+GET /api/v1/balance/ returns SDK balances, synced_at, chain_height and stale. Values
+are null before the first successful scan, never invented zero balances. Freshness
+is relative to the last local-node scan, not an independent proof of global chain tip.
+GET /api/v1/transactions/ returns paginated received outputs, including reversed
+records for audit. This version lists mined deposits only, not mempool payments or
+outgoing transaction history. Confirmations use the snapshot height. External
+outputs without a matching payment address remain attributed to the wallet owner,
+with payment_request=null. Internal transfers/change are excluded from receipt totals.
+
+Payment responses include received_zatoshis and funding_status (unpaid,
+partially_paid, paid, overpaid), based on active mined receipts at the last scan.
+The existing status remains the payment-window state. Always check balance.stale.
+Expiry does not remove address mappings. The late flag compares block time to expiry;
+it cannot establish when a sender first broadcast a transaction.
+
+No withdrawal, settlement or webhook is enabled by this change. Back up wallet data
+and its encryption key before any live deposit test. A full live receive/reorg exercise
+is still needed before production use.

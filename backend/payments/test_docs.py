@@ -12,7 +12,7 @@ class DocumentationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         schema = response.json()
         paths = schema["paths"]
-        self.assertEqual(sum(len([m for m in item if m in ("get", "post", "delete")]) for item in paths.values()), 10)
+        self.assertEqual(sum(len([m for m in item if m in ("get", "post", "delete")]) for item in paths.values()), 12)
         self.assertNotIn("/", paths)
         post = paths["/api/v1/payment-requests/"]["post"]
         self.assertTrue(any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"]))

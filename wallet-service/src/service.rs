@@ -57,6 +57,7 @@ pub fn router(app: App) -> Router {
         })) }))
         .route("/v1/probe", get(probe))
         .route("/v1/addresses", post(allocate))
+        .route("/v1/snapshot", post(snapshot))
         .with_state(app)
 }
 
@@ -176,3 +177,24 @@ mod tests {
     }
 }
 
+
+#[derive(Deserialize)]
+struct SnapshotInput { merchant_id: String }
+
+async fn snapshot(State(app): State<App>, headers: HeaderMap, Json(input): Json<SnapshotInput>)
+    -> Result<Json<serde_json::Value>, ApiError>
+{
+    authorize(&headers, &app.token)?;
+    validate_merchant(&input.merchant_id)?;
+    let _guard = app.lock.lock().await;
+    let path = app.directory.join("merchants").join(&input.merchant_id).join("wallet.sqlite");
+    if !path.is_file() { return Err(error(StatusCode::NOT_FOUND, "Merchant wallet not allocated")); }
+    let operation = async {
+        storage::sync_existing_wallet(&path, &app.endpoint).await?;
+        crate::snapshot::read(&path, &input.merchant_id)
+    };
+    match tokio::time::timeout(Duration::from_secs(120), operation).await {
+        Ok(Ok(value)) => Ok(Json(value)),
+        _ => Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet sync incomplete; previous snapshot remains valid only as historical data")),
+    }
+}

@@ -3169,6 +3169,7 @@ dependencies = [
  "fs2",
  "hex",
  "rand",
+ "rusqlite",
  "secrecy",
  "serde",
  "serde_json",

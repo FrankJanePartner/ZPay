@@ -2,8 +2,9 @@
 
 This Linux/WSL service reuses the existing wallet storage, address and network modules without Tauri.
 It currently supports MAINNET because the reused wallet engine hardcodes that network.
-It is not yet a complete payment processor: scanning/attribution, balances, confirmation/reorg
-handling, webhooks and withdrawals remain to be integrated. Do not send funds during this setup stage.
+The service supports address allocation and SDK scanning. Django imports complete snapshots
+for deposit attribution, balances and reorganization handling. Webhooks and withdrawals
+remain unavailable. Live receipt and recovery testing is still required.
 
 ## First: verify lightwalletd (read-only)
 
@@ -67,3 +68,12 @@ This initial implementation serializes allocations. Protect and back up BOTH Dja
 the wallet-service directory: seeds alone do not reconstruct business ownership or request mappings.
 There is no multi-process scaling, automatic secret rotation, continuous scanner, or restoration CLI yet.
 Keep the private service off the public internet. The existing Tauri source remains the original implementation.
+
+POST /v1/snapshot (private service bearer token, JSON {"merchant_id":"1"})
+scans an existing merchant wallet and returns a complete mined-output snapshot plus
+SDK balances. It never creates a merchant wallet. Partial scans return 503. The
+snapshot reader uses read-only SQL against the pinned zcash_client_sqlite 0.22.0
+schema, tested against an actual migrated SDK database. It includes external mined
+receipts across supported pools, excludes change/internal outputs, and preserves
+unmatched addresses for account-level attribution. Keep the Rust SDK pinned and
+run the schema-contract test on upgrades.

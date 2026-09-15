@@ -53,3 +53,34 @@ class PaymentRequest(models.Model):
         if timezone.now() >= self.expires_at:
             return "expired"
         return "awaiting_payment"
+
+class WalletSync(models.Model):
+    owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, primary_key=True)
+    chain_height = models.PositiveIntegerField(null=True)
+    synced_at = models.DateTimeField(null=True)
+    last_attempt_at = models.DateTimeField(null=True)
+    last_error = models.CharField(max_length=160, blank=True)
+    total_zatoshis = models.PositiveBigIntegerField(default=0)
+    spendable_zatoshis = models.PositiveBigIntegerField(default=0)
+    pending_zatoshis = models.PositiveBigIntegerField(default=0)
+    lease = models.UUIDField(null=True)
+    lease_until = models.DateTimeField(null=True)
+
+class Deposit(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    payment_request = models.ForeignKey(PaymentRequest, null=True, on_delete=models.PROTECT, related_name="deposits")
+    txid = models.CharField(max_length=64)
+    pool = models.PositiveSmallIntegerField()
+    output_index = models.PositiveIntegerField()
+    amount_zatoshis = models.PositiveBigIntegerField()
+    address = models.CharField(max_length=1024, null=True)
+    mined_height = models.PositiveIntegerField()
+    block_time = models.DateTimeField()
+    active = models.BooleanField(default=True)
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["owner", "txid", "pool", "output_index"], name="unique_wallet_output")]
+        ordering = ["-block_time", "-id"]

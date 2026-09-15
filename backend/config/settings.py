@@ -59,8 +59,9 @@ window; it does not erase the blockchain address or funds. Never reuse an addres
 for another payment. Keep the same Idempotency-Key and payload when retrying.
 
 Current scope: registration, credentials and receiving-address allocation.
-Deposit detection, balances, transaction history, webhooks and settlement are not
-implemented yet. awaiting_payment does not prove whether funds have arrived.
+Run sync_wallets to update deposit history and balances from complete wallet scans.
+Check balance.stale before using observations. Webhooks and settlement remain unavailable.
+Payment status describes the request window; use received totals and deposit history for funds.
 Examples use fictional credentials and an illustrative address; do not send funds to examples.
 """,
     "SERVE_INCLUDE_SCHEMA": False,
