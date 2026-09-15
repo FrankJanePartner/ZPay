@@ -36,7 +36,7 @@ backup of vault.key separately from encrypted recovery records before accepting 
 Encryption protects recovery records if they are copied alone; access to the live data directory
 includes the encryption key and therefore still requires strong operating-system access controls.
 
-The service binds only 127.0.0.1:9068 and locks its data directory to one process.
+The service binds only 127.0.0.1:9070 and locks its data directory to one process.
 GET /health reports liveness. GET /v1/probe and POST /v1/addresses require
 Authorization: Bearer <contents-of-service.token>. Never paste that token or vault.key into chat.
 
@@ -53,7 +53,7 @@ Repeated requests return the persisted address. Recoverable material is written 
 Wallet expiry never deletes these records. An interrupted allocation may leave an unused address in
 the wallet; no returned address is intentionally reused for another request.
 
-Configure Django with ZPAY_WALLET_URL=http://127.0.0.1:9068 and ZPAY_WALLET_TOKEN set privately
+Configure Django with ZPAY_WALLET_URL=http://127.0.0.1:9070 and ZPAY_WALLET_TOKEN set privately
 from service.token, then restart Django. Allocation can take longer on a new wallet; a 503 is
 retried using the same Idempotency-Key. No synthetic addresses are generated on errors.
 
