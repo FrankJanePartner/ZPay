@@ -10,7 +10,7 @@ if not SECRET_KEY:
         raise RuntimeError("Set ZPAY_SECRET_KEY; use ZPAY_DEBUG=1 only for local development.")
     SECRET_KEY = "local-development-only-do-not-deploy"
 ALLOWED_HOSTS = os.environ.get("ZPAY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
-INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "rest_framework", "payments"]
+INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -25,6 +25,7 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["payments.auth.BearerAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -38,3 +39,32 @@ WALLET_SERVICE_URL = os.environ.get("ZPAY_WALLET_URL", "")
 WALLET_SERVICE_TOKEN = os.environ.get("ZPAY_WALLET_TOKEN", "")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = not DEBUG
+
+TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP_DIRS": True}]
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+SPECTACULAR_SETTINGS = {
+    "TITLE": "ZPay API",
+    "VERSION": "1.0.0",
+    "DESCRIPTION": """Zcash payment requests for Private Bill and other integrations.
+
+Quick start: register or log in, copy the returned dashboard token into **Authorize**
+(paste the token only), then create an API key. Replace the dashboard token in Authorize
+with that API key to create and read payment requests. Dashboard tokens expire after
+12 hours. API keys can access payments but cannot manage keys or log out.
+
+Amounts are integer strings in zatoshis: 100000000 zatoshis = 1 ZEC.
+A request lasts 60–1800 seconds after address allocation. Expiry closes the payment
+window; it does not erase the blockchain address or funds. Never reuse an address
+for another payment. Keep the same Idempotency-Key and payload when retrying.
+
+Current scope: registration, credentials and receiving-address allocation.
+Deposit detection, balances, transaction history, webhooks and settlement are not
+implemented yet. awaiting_payment does not prove whether funds have arrived.
+Examples use fictional credentials and an illustrative address; do not send funds to examples.
+""",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "SWAGGER_UI_SETTINGS": {"deepLinking": True, "persistAuthorization": False, "displayRequestDuration": True},
+}

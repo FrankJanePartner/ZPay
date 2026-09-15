@@ -92,3 +92,15 @@ after validation before deployment.
 Framework references:
 https://docs.djangoproject.com/en/5.2/
 https://www.django-rest-framework.org/api-guide/authentication/
+
+
+### Interactive API documentation
+
+Open http://localhost:8000/ for Swagger UI. All existing public operations have
+request/response examples, bearer authentication and documented errors. Register
+or log in, paste the returned token (without `Bearer `) into Authorize, then create
+an API key. Use that key to exercise payment requests. No separate docs URL is needed;
+the UI loads OpenAPI from `/?schema=1`. Examples contain fictional credentials.
+Swagger assets are bundled with drf-spectacular-sidecar, not fetched from a CDN.
+For deployment, run `python manage.py collectstatic --noinput` and serve STATIC_ROOT
+at STATIC_URL through the deployment's static file server.

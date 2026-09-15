@@ -1,4 +1,10 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
+
+@extend_schema_field({"type": "string", "enum": ["provisioning", "awaiting_payment", "expired"]})
+class PaymentStatusField(serializers.ReadOnlyField):
+    pass
+
 from .models import Credential, PaymentRequest
 
 class CredentialsInput(serializers.Serializer):
@@ -27,9 +33,9 @@ class PaymentInput(serializers.Serializer):
 
 class PaymentOutput(serializers.ModelSerializer):
     amount_zatoshis = serializers.SerializerMethodField()
-    status = serializers.ReadOnlyField()
+    status = PaymentStatusField()
     class Meta:
         model = PaymentRequest
         fields = ["id", "reference", "amount_zatoshis", "address", "status", "created_at", "expires_at"]
-    def get_amount_zatoshis(self, obj):
+    def get_amount_zatoshis(self, obj) -> str:
         return str(obj.amount_zatoshis)

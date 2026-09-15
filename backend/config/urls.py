@@ -1,6 +1,8 @@
 from django.urls import path
 from payments import views
+from payments.docs import documentation_home  # Registers endpoint schema annotations.
 urlpatterns = [
+    path("", documentation_home, name="api-docs"),
     path("health/", views.Health.as_view()),
     path("api/v1/auth/register/", views.Register.as_view()),
     path("api/v1/auth/login/", views.Login.as_view()),
