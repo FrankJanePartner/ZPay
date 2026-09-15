@@ -42,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     lock_file.try_lock_exclusive().map_err(|_| "Another wallet service already uses this data directory")?;
     let app = App { directory, endpoint, key: Arc::new(Zeroizing::new(key)),
         token: Arc::new(token), lock: Arc::new(Mutex::new(())) };
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:9068").await?;
-    println!("ZPay wallet service listening on 127.0.0.1:9068; settlement is not enabled.");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:9070").await?;
+    println!("ZPay wallet service listening on 127.0.0.1:9070; settlement is not enabled.");
     axum::serve(listener, router(app)).await?;
     drop(lock_file);
     Ok(())
