@@ -190,11 +190,22 @@ async fn snapshot(State(app): State<App>, headers: HeaderMap, Json(input): Json<
     let path = app.directory.join("merchants").join(&input.merchant_id).join("wallet.sqlite");
     if !path.is_file() { return Err(error(StatusCode::NOT_FOUND, "Merchant wallet not allocated")); }
     let operation = async {
-        storage::sync_existing_wallet(&path, &app.endpoint).await?;
+        eprintln!("Wallet snapshot: starting SDK scan");
+        storage::sync_existing_wallet(&path, &app.endpoint).await
+            .map_err(|e| format!("SDK scan failed: {e}"))?;
+        eprintln!("Wallet snapshot: SDK scan completed; reading snapshot");
         crate::snapshot::read(&path, &input.merchant_id)
+            .map_err(|e| format!("Snapshot read failed: {e}"))
     };
     match tokio::time::timeout(Duration::from_secs(120), operation).await {
         Ok(Ok(value)) => Ok(Json(value)),
-        _ => Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet sync incomplete; previous snapshot remains valid only as historical data")),
+        Ok(Err(cause)) => {
+            eprintln!("Wallet snapshot failed: {cause}");
+            Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet snapshot failed; check wallet-service terminal"))
+        }
+        Err(_) => {
+            eprintln!("Wallet snapshot timed out after 120 seconds");
+            Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet scan timed out after 120 seconds"))
+        }
     }
 }
