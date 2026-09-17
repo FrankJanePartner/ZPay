@@ -179,33 +179,37 @@ mod tests {
 
 
 #[derive(Deserialize)]
-struct SnapshotInput { merchant_id: String }
+struct SnapshotInput { merchant_id: String, timeout_seconds: Option<u64> }
 
 async fn snapshot(State(app): State<App>, headers: HeaderMap, Json(input): Json<SnapshotInput>)
     -> Result<Json<serde_json::Value>, ApiError>
 {
     authorize(&headers, &app.token)?;
     validate_merchant(&input.merchant_id)?;
-    let _guard = app.lock.lock().await;
+    let timeout_seconds = input.timeout_seconds.unwrap_or(120);
+    if !(60..=1800).contains(&timeout_seconds) {
+        return Err(error(StatusCode::BAD_REQUEST, "timeout_seconds must be between 60 and 1800"));
+    }
     let path = app.directory.join("merchants").join(&input.merchant_id).join("wallet.sqlite");
     if !path.is_file() { return Err(error(StatusCode::NOT_FOUND, "Merchant wallet not allocated")); }
     let operation = async {
-        eprintln!("Wallet snapshot: starting SDK scan");
+        let _guard = app.lock.lock().await;
+        eprintln!("Wallet snapshot: starting SDK scan (budget {timeout_seconds} seconds)");
         storage::sync_existing_wallet(&path, &app.endpoint).await
             .map_err(|e| format!("SDK scan failed: {e}"))?;
         eprintln!("Wallet snapshot: SDK scan completed; reading snapshot");
         crate::snapshot::read(&path, &input.merchant_id)
             .map_err(|e| format!("Snapshot read failed: {e}"))
     };
-    match tokio::time::timeout(Duration::from_secs(120), operation).await {
+    match tokio::time::timeout(Duration::from_secs(timeout_seconds), operation).await {
         Ok(Ok(value)) => Ok(Json(value)),
         Ok(Err(cause)) => {
             eprintln!("Wallet snapshot failed: {cause}");
             Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet snapshot failed; check wallet-service terminal"))
         }
         Err(_) => {
-            eprintln!("Wallet snapshot timed out after 120 seconds");
-            Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet scan timed out after 120 seconds"))
+            eprintln!("Wallet snapshot timed out after {timeout_seconds} seconds");
+            Err(error(StatusCode::SERVICE_UNAVAILABLE, "Wallet scan exceeded its configured timeout"))
         }
     }
 }

@@ -139,3 +139,10 @@ it cannot establish when a sender first broadcast a transaction.
 No withdrawal, settlement or webhook is enabled by this change. Back up wallet data
 and its encryption key before any live deposit test. A full live receive/reorg exercise
 is still needed before production use.
+
+For a slow initial scan, set ZPAY_WALLET_SYNC_TIMEOUT_SECONDS=600 in the scanner's
+process environment. Allowed values are 60–1800 seconds (default 120). The scanner
+passes the budget to the private service, waits an additional 15 seconds for HTTP,
+and keeps its account lease for an additional 60 seconds. The service budget includes
+waiting for the wallet lock. Previous snapshots are preserved on timeout. This does
+not make an unsynced lightwalletd ready or prove global chain freshness.

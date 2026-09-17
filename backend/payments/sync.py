@@ -1,5 +1,6 @@
 """Import complete SDK snapshots; never accept deposit observations from public callers."""
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -57,13 +58,19 @@ def validate_snapshot(owner_id, data):
                             address=address, mined_height=mined, block_time=block_time))
     return tip, totals, outputs
 
+def sync_timeout():
+    value = int(os.environ.get("ZPAY_WALLET_SYNC_TIMEOUT_SECONDS", "120"))
+    if not 60 <= value <= 1800:
+        raise ValueError("ZPAY_WALLET_SYNC_TIMEOUT_SECONDS must be between 60 and 1800")
+    return value
+
 def fetch_snapshot(owner_id):
     if not settings.WALLET_SERVICE_URL or not settings.WALLET_SERVICE_TOKEN:
         raise ValueError("Wallet service not configured")
     request = Request(settings.WALLET_SERVICE_URL.rstrip("/") + "/v1/snapshot",
-                      data=json.dumps({"merchant_id": str(owner_id)}).encode(),
+                      data=json.dumps({"merchant_id": str(owner_id), "timeout_seconds": sync_timeout()}).encode(),
                       headers={"Content-Type": "application/json", "Authorization": "Bearer " + settings.WALLET_SERVICE_TOKEN}, method="POST")
-    with urlopen(request, timeout=135) as response:
+    with urlopen(request, timeout=sync_timeout() + 15) as response:
         content = response.read(32 * 1024 * 1024 + 1)
         if len(content) > 32 * 1024 * 1024:
             raise ValueError("Wallet snapshot too large")
@@ -76,7 +83,7 @@ def apply_snapshot(owner_id, data, lease):
     if state.lease != lease or not state.lease_until or state.lease_until <= timezone.now():
         raise ValueError("Sync lease expired")
     # Claim the lease with an UPDATE too, so SQLite also serializes concurrent writers.
-    if not WalletSync.objects.filter(owner_id=owner_id, lease=lease, lease_until__gt=timezone.now()).update(lease_until=timezone.now()+timedelta(seconds=180)):
+    if not WalletSync.objects.filter(owner_id=owner_id, lease=lease, lease_until__gt=timezone.now()).update(lease_until=timezone.now()+timedelta(seconds=sync_timeout() + 60)):
         raise ValueError("Sync lease lost")
     requests = {p.address: p for p in PaymentRequest.objects.filter(owner_id=owner_id, address__isnull=False)}
     # A complete replacement removes orphaned confirmations without losing audit history.
@@ -98,7 +105,7 @@ def sync_owner(owner_id):
     WalletSync.objects.get_or_create(owner_id=owner_id)
     now, lease = timezone.now(), uuid.uuid4()
     claimed = WalletSync.objects.filter(owner_id=owner_id).filter(Q(lease_until__isnull=True) | Q(lease_until__lte=now)).update(
-        lease=lease, lease_until=now+timedelta(seconds=180), last_attempt_at=now)
+        lease=lease, lease_until=now+timedelta(seconds=sync_timeout() + 60), last_attempt_at=now)
     if not claimed:
         return False
     try:

@@ -92,3 +92,30 @@ class WalletSyncTests(TestCase):
         payment = self.client.get(f"/api/v1/payment-requests/{self.payment.id}/").json()
         self.assertEqual(payment["funding_status"], "overpaid")
         self.assertEqual(payment["received_zatoshis"], "150000")
+
+    def test_extended_scan_budget_reaches_service_and_preserves_lease(self):
+        import json
+        import os
+        from .sync import fetch_snapshot
+        with patch.dict(os.environ, {"ZPAY_WALLET_SYNC_TIMEOUT_SECONDS": "600"}):
+            with self.settings(WALLET_SERVICE_URL="http://127.0.0.1:9070", WALLET_SERVICE_TOKEN="test-only"):
+                with patch("payments.sync.urlopen") as transport:
+                    transport.return_value.__enter__.return_value.read.return_value = json.dumps(self.data).encode()
+                    self.assertEqual(fetch_snapshot(self.user.pk), self.data)
+                    args, kwargs = transport.call_args
+                    self.assertEqual(kwargs["timeout"], 615)
+                    self.assertEqual(json.loads(args[0].data)["timeout_seconds"], 600)
+            def fetch(owner_id):
+                state = WalletSync.objects.get(owner_id=owner_id)
+                self.assertGreater((state.lease_until - timezone.now()).total_seconds(), 650)
+                return self.data
+            with patch("payments.sync.fetch_snapshot", side_effect=fetch):
+                self.assertTrue(sync_owner(self.user.pk))
+
+    def test_invalid_scan_budget_is_rejected(self):
+        import os
+        from .sync import sync_timeout
+        for value in ("0", "1801", "invalid"):
+            with patch.dict(os.environ, {"ZPAY_WALLET_SYNC_TIMEOUT_SECONDS": value}):
+                with self.assertRaises(ValueError):
+                    sync_timeout()
