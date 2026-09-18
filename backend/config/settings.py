@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import dj_database_url
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = os.environ.get("ZPAY_DEBUG", "0") == "1"
@@ -10,8 +11,8 @@ if not SECRET_KEY:
         raise RuntimeError("Set ZPAY_SECRET_KEY; use ZPAY_DEBUG=1 only for local development.")
     SECRET_KEY = "local-development-only-do-not-deploy"
 ALLOWED_HOSTS = os.environ.get("ZPAY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
-INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
-MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "django.middleware.common.CommonMiddleware"]
+INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "corsheaders", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
+MIDDLEWARE = ["config.middleware.NoStoreApiMiddleware", "django.middleware.security.SecurityMiddleware", "corsheaders.middleware.CorsMiddleware", "django.middleware.common.CommonMiddleware"]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {"default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
@@ -39,6 +40,16 @@ WALLET_SERVICE_URL = os.environ.get("ZPAY_WALLET_URL", "")
 WALLET_SERVICE_TOKEN = os.environ.get("ZPAY_WALLET_TOKEN", "")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = not DEBUG
+CORS_ALLOWED_ORIGINS = [
+    item.strip()
+    for item in os.environ.get(
+        "ZPAY_CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173" if DEBUG else "",
+    ).split(",") if item.strip()
+]
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_HEADERS = [*default_headers, "idempotency-key"]
+CORS_EXPOSE_HEADERS = ["Retry-After"]
 
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP_DIRS": True}]
 STATIC_URL = "/static/"
