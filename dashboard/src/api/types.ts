@@ -27,6 +27,17 @@ export interface PaymentRequest {
   funding_status: "unpaid" | "partially_paid" | "paid" | "overpaid";
 }
 
+export interface SendRequest {
+  id: string;
+  recipient_address: string;
+  amount_zatoshis: string;
+  status: "pending" | "broadcast" | "failed";
+  txids: string[];
+  error: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Paginated<T> {
   count: number;
   next: string | null;

@@ -350,6 +350,35 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
     Ok(broadcast_txids)
 }
 
+pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
+    wallet_path: P,
+    lightwalletd_endpoint: &str,
+    recovery_phrase: &str,
+    recipient_address: &str,
+    amount_zatoshis: u64,
+) -> Result<Vec<String>, String> {
+    let recipient = recipient_address
+        .trim()
+        .parse::<ZcashAddress>()
+        .map_err(|e| format!("Invalid Zcash recipient address: {e}"))?;
+
+    let amount = Zatoshis::from_u64(amount_zatoshis)
+        .map_err(|_| "Amount is outside the valid Zcash monetary range.".to_string())?;
+
+    let txids = build_signed_transaction(
+        wallet_path.as_ref(),
+        recovery_phrase,
+        recipient,
+        amount,
+    )?;
+
+    broadcast_signed_transactions(
+        wallet_path,
+        lightwalletd_endpoint,
+        &txids,
+    ).await
+}
+
 pub async fn send_zec<P: AsRef<std::path::Path>>(
     wallet_path: P,
     lightwalletd_endpoint: &str,

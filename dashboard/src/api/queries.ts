@@ -6,6 +6,7 @@ import type {
   KeyMetadata,
   Paginated,
   PaymentRequest,
+  SendRequest,
   SessionResponse,
   WalletBalance,
 } from "./types";
@@ -160,6 +161,29 @@ export async function createPayment(
   signal?: AbortSignal,
 ): Promise<PaymentRequest> {
   const response = await apiRequest<PaymentRequest>("/api/v1/payment-requests/", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (!response) {
+    throw new ApiError({ status: 204, detail: "Invalid API response. Please try again." });
+  }
+  return response;
+}
+
+
+export interface SendZecPayload {
+  recipient_address: string;
+  amount_zatoshis: string;
+}
+
+export async function sendZec(
+  payload: Readonly<SendZecPayload>,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<SendRequest> {
+  const response = await apiRequest<SendRequest>("/api/v1/sends/", {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(payload),

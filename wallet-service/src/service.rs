@@ -5,7 +5,7 @@ use subtle::ConstantTimeEq;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use zeroize::{Zeroize, Zeroizing};
-use crate::{network, storage, vault};
+use crate::{network, send, storage, vault};
 
 #[derive(Clone)]
 pub struct App {
@@ -21,6 +21,21 @@ pub struct App {
 pub struct AllocationInput {
     merchant_id: String,
     request_id: Uuid,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SendInput {
+    merchant_id: String,
+    request_id: Uuid,
+    recipient_address: String,
+    amount_zatoshis: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SendResult {
+    merchant_id: String,
+    request_id: Uuid,
+    txids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -57,6 +72,7 @@ pub fn router(app: App) -> Router {
         })) }))
         .route("/v1/probe", get(probe))
         .route("/v1/addresses", post(allocate))
+        .route("/v1/send", post(send_payment))
         .route("/v1/snapshot", post(snapshot))
         .with_state(app)
 }
@@ -67,6 +83,102 @@ async fn probe(State(app): State<App>, headers: HeaderMap) -> Result<Json<serde_
         .await.map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "lightwalletd timed out"))?
         .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "lightwalletd probe failed"))?;
     Ok(Json(serde_json::json!({"chain_tip": tip, "tree_height": tree.height, "network": tree.network})))
+}
+
+async fn send_payment(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(input): Json<SendInput>,
+) -> Result<Json<SendResult>, ApiError> {
+    authorize(&headers, &app.token)?;
+    validate_merchant(&input.merchant_id)?;
+
+    if input.amount_zatoshis == 0 || input.amount_zatoshis > 2_100_000_000_000_000 {
+        return Err(error(
+            StatusCode::BAD_REQUEST,
+            "Amount is outside the valid Zcash monetary range",
+        ));
+    }
+
+    if input.recipient_address.trim().is_empty() {
+        return Err(error(StatusCode::BAD_REQUEST, "Recipient address is required"));
+    }
+
+    let _guard = app.lock.lock().await;
+
+    let result = send_inner(&app, input).await.map_err(|e| {
+        eprintln!("Wallet send failed: {e}");
+        error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Wallet send unavailable; retry the same request_id",
+        )
+    })?;
+
+    Ok(Json(result))
+}
+
+async fn send_inner(app: &App, input: SendInput) -> Result<SendResult, String> {
+    let merchant = app.directory.join("merchants").join(&input.merchant_id);
+    let wallet_path = merchant.join("wallet.sqlite");
+
+    if !wallet_path.is_file() {
+        return Err("Merchant wallet not allocated".into());
+    }
+
+    let journal = merchant
+        .join("requests")
+        .join(format!("send-{}.json", input.request_id));
+
+    if journal.exists() {
+        let previous: SendResult =
+            serde_json::from_slice(&fs::read(&journal).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+
+        if previous.merchant_id != input.merchant_id || previous.request_id != input.request_id {
+            return Err("Send journal identity mismatch".into());
+        }
+
+        return Ok(previous);
+    }
+
+    let encrypted =
+        fs::read(merchant.join("recovery.enc")).map_err(|e| e.to_string())?;
+
+    let plaintext = vault::open(&app.key, &input.merchant_id, &encrypted)?;
+
+    #[derive(Deserialize)]
+    struct RecoveryRecord {
+        recovery_phrase: String,
+    }
+
+    let mut created: RecoveryRecord =
+        serde_json::from_slice(&plaintext).map_err(|e| e.to_string())?;
+
+    let result = send::send_zatoshis(
+        &wallet_path,
+        &app.endpoint,
+        &created.recovery_phrase,
+        &input.recipient_address,
+        input.amount_zatoshis,
+    )
+    .await;
+
+    created.recovery_phrase.zeroize();
+
+    let txids = result?;
+
+    let send_result = SendResult {
+        merchant_id: input.merchant_id,
+        request_id: input.request_id,
+        txids,
+    };
+
+    vault::persist_new(
+        &journal,
+        &serde_json::to_vec(&send_result).map_err(|e| e.to_string())?,
+    )?;
+
+    Ok(send_result)
 }
 
 async fn allocate(State(app): State<App>, headers: HeaderMap, Json(input): Json<AllocationInput>)

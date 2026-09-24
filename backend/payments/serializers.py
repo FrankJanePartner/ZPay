@@ -5,7 +5,7 @@ from drf_spectacular.utils import extend_schema_field
 class PaymentStatusField(serializers.ReadOnlyField):
     pass
 
-from .models import Credential, PaymentRequest
+from .models import Credential, PaymentRequest, SendRequest
 
 class CredentialsInput(serializers.Serializer):
     email = serializers.EmailField(max_length=150)
@@ -53,3 +53,40 @@ class PaymentOutput(serializers.ModelSerializer):
         return "paid" if received == obj.amount_zatoshis else "overpaid"
     def get_amount_zatoshis(self, obj) -> str:
         return str(obj.amount_zatoshis)
+
+class SendInput(serializers.Serializer):
+    recipient_address = serializers.CharField(max_length=1024)
+    amount_zatoshis = serializers.RegexField(r"^[1-9][0-9]{0,15}$")
+
+    def validate_recipient_address(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Recipient address is required.")
+        return value
+
+    def validate_amount_zatoshis(self, value):
+        amount = int(value)
+        if amount > 2100000000000000:
+            raise serializers.ValidationError("Amount exceeds the Zcash monetary range.")
+        return amount
+
+
+class SendOutput(serializers.ModelSerializer):
+    amount_zatoshis = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SendRequest
+        fields = [
+            "id",
+            "recipient_address",
+            "amount_zatoshis",
+            "status",
+            "txids",
+            "error",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_amount_zatoshis(self, obj) -> str:
+        return str(obj.amount_zatoshis)
+

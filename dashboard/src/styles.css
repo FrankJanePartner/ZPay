@@ -991,3 +991,136 @@ h2 {
 }
 
 .connection-status { color: #b8c1c9; font-size: 0.875rem; }
+
+.send-page {
+  max-width: 52rem;
+}
+
+.send-panel {
+  margin-top: 1rem;
+  border: 1px solid #414247;
+  border-radius: 0.85rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: #292a2d;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 12%);
+}
+
+.send-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #414247;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.send-balance span {
+  color: #d8d4ca;
+}
+
+.send-balance strong {
+  color: #d4af37;
+  font-size: 1.15rem;
+}
+
+.send-form {
+  max-width: 38rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.send-form label {
+  margin-top: 0.35rem;
+  font-weight: 700;
+}
+
+.send-form button {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+
+.send-confirmation,
+.send-result {
+  margin-top: 1.25rem;
+  border-top: 1px solid #414247;
+  padding-top: 1.25rem;
+}
+
+.send-confirmation h2,
+.send-result h2 {
+  margin-top: 0;
+}
+
+.send-summary {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.send-summary > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.send-summary dt {
+  color: #d8d4ca;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.send-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-note {
+  color: #d8d4ca;
+  font-size: 0.9rem;
+}
+
+.send-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.send-result button {
+  margin-top: 1rem;
+}
+
+.send-txid {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #414247;
+  border-radius: 0.55rem;
+  background: #202124;
+}
+
+.send-txid span {
+  color: #d8d4ca;
+  font-size: 0.85rem;
+}
+
+.send-txid code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 767px) {
+  .send-balance {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .send-actions {
+    display: grid;
+  }
+
+  .send-actions button {
+    width: 100%;
+  }
+}

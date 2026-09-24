@@ -84,3 +84,31 @@ class Deposit(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["owner", "txid", "pool", "output_index"], name="unique_wallet_output")]
         ordering = ["-block_time", "-id"]
+
+
+class SendRequest(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("broadcast", "Broadcast"),
+        ("failed", "Failed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    idempotency_key = models.CharField(max_length=128)
+    recipient_address = models.CharField(max_length=1024)
+    amount_zatoshis = models.PositiveBigIntegerField()
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
+    txids = models.JSONField(default=list)
+    error = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "idempotency_key"], name="unique_owner_send_key"),
+            models.CheckConstraint(
+                condition=models.Q(amount_zatoshis__gte=1, amount_zatoshis__lte=2100000000000000),
+                name="valid_send_amount",
+            ),
+        ]

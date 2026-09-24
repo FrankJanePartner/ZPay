@@ -12,9 +12,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .auth import DashboardOnly
-from .models import Credential, PaymentRequest
-from .provider import allocate_address, WalletUnavailable
-from .serializers import CredentialsInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput
+from .models import Credential, PaymentRequest, SendRequest
+from .provider import allocate_address, send_zec, WalletUnavailable
+from .serializers import CredentialsInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput, SendInput, SendOutput
 
 class Health(APIView):
     authentication_classes = []
@@ -117,3 +117,60 @@ class PaymentDetail(generics.RetrieveAPIView):
     serializer_class = PaymentOutput
     def get_queryset(self):
         return PaymentRequest.objects.filter(owner=self.request.user)
+
+class Sends(generics.ListCreateAPIView):
+    serializer_class = SendOutput
+
+    def get_queryset(self):
+        return SendRequest.objects.filter(owner=self.request.user).order_by("-created_at", "-id")
+
+    def create(self, request, *args, **kwargs):
+        key = request.headers.get("Idempotency-Key", "")
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", key):
+            raise ValidationError({
+                "Idempotency-Key": "Provide 1–128 letters, digits, dots, underscores, colons or hyphens."
+            })
+
+        data = SendInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+
+        send_request, created = SendRequest.objects.get_or_create(
+            owner=request.user,
+            idempotency_key=key,
+            defaults=values,
+        )
+
+        if (
+            send_request.recipient_address != values["recipient_address"]
+            or send_request.amount_zatoshis != values["amount_zatoshis"]
+        ):
+            return Response(
+                {"detail": "Idempotency-Key already used with a different payload."},
+                status=409,
+            )
+
+        if send_request.status == "broadcast":
+            return Response(SendOutput(send_request).data, status=200)
+
+        try:
+            txids = send_zec(send_request)
+        except WalletUnavailable:
+            SendRequest.objects.filter(pk=send_request.pk).update(
+                status="failed",
+                error="Wallet service unavailable. Retry with the same Idempotency-Key.",
+            )
+            raise
+
+        SendRequest.objects.filter(pk=send_request.pk).update(
+            status="broadcast",
+            txids=txids,
+            error="",
+        )
+        send_request.refresh_from_db()
+
+        return Response(
+            SendOutput(send_request).data,
+            status=201 if created else 200,
+        )
+

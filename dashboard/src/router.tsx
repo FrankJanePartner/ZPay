@@ -9,6 +9,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { PaymentDetailPage } from "./pages/PaymentDetailPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { SendPage } from "./pages/SendPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { RouteErrorPage } from "./components/RouteErrorPage";
 
@@ -37,6 +38,7 @@ export const appRoutes: RouteObject[] = [
           { path: "/payments", element: <PaymentsPage /> },
           { path: "/payments/:id", element: <PaymentDetailPage /> },
           { path: "/transactions", element: <TransactionsPage /> },
+          { path: "/send", element: <SendPage /> },
           { path: "/api-keys", element: <ApiKeysPage /> },
           { path: "/docs", element: <DocsPage /> },
         ],

@@ -8,6 +8,7 @@ const NARROW_VIEWPORT = "(max-width: 767px)";
 const navigationItems = [
   { to: "/dashboard", label: "Overview" },
   { to: "/payments", label: "Payments" },
+  { to: "/send", label: "Send ZEC" },
   { to: "/transactions", label: "Transactions" },
   { to: "/api-keys", label: "API Keys" },
 ];

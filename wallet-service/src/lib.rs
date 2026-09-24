@@ -6,6 +6,8 @@ pub mod network;
 #[path = "../../src-tauri/src/wallet/storage.rs"]
 pub mod storage;
 pub mod vault;
+#[path = "../../src-tauri/src/wallet/send.rs"]
+pub mod send;
 pub mod service;
 
 pub mod snapshot;
