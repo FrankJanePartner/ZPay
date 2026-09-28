@@ -3,7 +3,7 @@ use rand::RngCore;
 use std::{env, fs, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use zeroize::Zeroizing;
-use zpay_wallet_service::{network, service::{App, router}, vault};
+use zoerdwallet_wallet_service::{network, service::{App, router}, vault};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Created private wallet service files. Back up vault.key separately; never paste it into chat.");
         return Ok(());
     }
-    if command != "serve" { return Err("Usage: zpay-wallet-service [probe|init|serve]".into()); }
+    if command != "serve" { return Err("Usage: zoerdwallet-wallet-service [probe|init|serve]".into()); }
     let key_bytes = Zeroizing::new(fs::read(directory.join("vault.key"))?);
     let key: [u8; 32] = key_bytes.as_slice().try_into().map_err(|_| "Invalid vault.key length")?;
     let token = Zeroizing::new(fs::read_to_string(directory.join("service.token"))?.trim().to_owned());
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = App { directory, endpoint, key: Arc::new(Zeroizing::new(key)),
         token: Arc::new(token), lock: Arc::new(Mutex::new(())) };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:9070").await?;
-    println!("ZPay wallet service listening on 127.0.0.1:9070; settlement is not enabled.");
+    println!("ZOERDWALLET Wallet Service listening on 127.0.0.1:9070; settlement is not enabled.");
     axum::serve(listener, router(app)).await?;
     drop(lock_file);
     Ok(())

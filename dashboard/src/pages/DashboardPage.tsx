@@ -106,7 +106,7 @@ export function DashboardPage() {
     <section className="dashboard-page" aria-labelledby="dashboard-title">
       <div className="dashboard-heading">
         <div>
-          <p className="eyebrow">ZPay Merchant</p>
+          <p className="eyebrow">ZOERDWALLET Merchant</p>
           <h1 id="dashboard-title">Overview</h1>
         </div>
         {balance ? (

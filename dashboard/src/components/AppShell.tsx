@@ -60,8 +60,8 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <Link className="brand" to="/dashboard" aria-label="ZPay dashboard">
-          ZPay
+        <Link className="brand" to="/dashboard" aria-label="ZOERDWALLET dashboard">
+          ZOERDWALLET
         </Link>
         <div className="header-actions">
           <Link className="header-link" to="/docs">

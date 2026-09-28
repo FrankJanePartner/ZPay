@@ -103,4 +103,4 @@ class PaymentAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/json")
-        self.assertEqual(response.json()["service"], "ZPay API")
+        self.assertEqual(response.json()["service"], "ZOERDWALLET API")

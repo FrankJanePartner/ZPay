@@ -245,7 +245,7 @@ function emittedServiceWorker(): string {
 }
 
 beforeAll(() => {
-  buildDirectory = mkdtempSync(join(tmpdir(), "zpay-dashboard-"));
+  buildDirectory = mkdtempSync(join(tmpdir(), "zoerdwallet-dashboard-"));
   execFileSync(
     process.execPath,
     [join(dashboardRoot, "node_modules/vite/bin/vite.js"), "build", "--outDir", buildDirectory, "--emptyOutDir"],
@@ -280,14 +280,14 @@ describe("production PWA artifact", () => {
     }
   });
 
-  it("emits the ZPay install manifest with every required icon purpose", () => {
+  it("emits the ZOERDWALLET install manifest with every required icon purpose", () => {
     const manifest = JSON.parse(readFileSync(join(buildDirectory, "manifest.webmanifest"), "utf8")) as {
       name?: string;
       display?: string;
       icons?: Array<{ sizes?: string; purpose?: string }>;
     };
 
-    expect(manifest.name).toBe("ZPay Merchant Dashboard");
+    expect(manifest.name).toBe("ZOERDWALLET Merchant Dashboard");
     expect(manifest.display).toBe("standalone");
     expect(manifest.icons).toEqual(expect.arrayContaining([
       expect.objectContaining({ sizes: "192x192" }),

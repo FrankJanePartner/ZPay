@@ -8,7 +8,7 @@ export const handlers = [
   ),
   http.get(`${API_ORIGIN}/api/v1/health/`, () =>
     HttpResponse.json({
-      service: "ZPay API",
+      service: "ZOERDWALLET API",
       status: "ok",
       settlement_enabled: false,
     }),

@@ -69,7 +69,7 @@ fn validate_merchant(merchant: &str) -> Result<(), ApiError> {
 pub fn router(app: App) -> Router {
     Router::new()
         .route("/health", get(|| async { Json(serde_json::json!({
-            "service": "ZPay wallet service", "settlement_enabled": false
+            "service": "ZOERDWALLET Wallet Service", "settlement_enabled": false
         })) }))
         .route("/v1/probe", get(probe))
         .route("/v1/addresses", post(allocate))

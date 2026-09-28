@@ -78,7 +78,7 @@ TEMPLATES = [{
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ZPay API",
+    "TITLE": "ZOERDWALLET API",
     "VERSION": "1.0.0",
     "DESCRIPTION": """Zcash payment requests for Private Bill and other integrations.
 

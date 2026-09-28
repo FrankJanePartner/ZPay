@@ -84,7 +84,7 @@ export function LoginPage() {
   return (
     <main className="auth-layout">
       <section className="auth-card" aria-labelledby="login-title">
-        <p className="eyebrow">ZPay Merchant</p>
+        <p className="eyebrow">ZOERDWALLET Merchant</p>
         <h1 id="login-title">Sign in</h1>
         <p>Access payments, receipts, and API credentials.</p>
         <form onSubmit={handleSubmit}>
@@ -119,7 +119,7 @@ export function LoginPage() {
           </button>
         </form>
         <p>
-          New to ZPay? <Link to="/register">Create an account</Link>
+          New to ZOERDWALLET? <Link to="/register">Create an account</Link>
         </p>
       </section>
     </main>

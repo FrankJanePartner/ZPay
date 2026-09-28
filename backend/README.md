@@ -1,4 +1,6 @@
-# ZPay API — foundation
+# ZOERDWALLET API
+
+The public product is ZOERDWALLET. Existing `ZPAY_*` environment variable names and the `zpay_` API credential prefix are intentionally retained for deployment and client compatibility; do not rename them as part of the branding change.
 
 This branch adds the API foundation alongside the existing desktop wallet.
 Live address allocation and a mined-deposit scanner, balances and received-output

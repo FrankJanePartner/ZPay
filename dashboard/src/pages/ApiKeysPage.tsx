@@ -157,7 +157,7 @@ export function ApiKeysPage() {
     <section className="api-keys-page" aria-labelledby="api-keys-title">
       <div className="dashboard-heading">
         <div>
-          <p className="eyebrow">ZPay Merchant</p>
+          <p className="eyebrow">ZOERDWALLET Merchant</p>
           <h1 id="api-keys-title">API Keys</h1>
         </div>
       </div>

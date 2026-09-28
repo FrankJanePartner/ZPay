@@ -70,7 +70,7 @@ export function RegisterPage() {
   return (
     <main className="auth-layout">
       <section className="auth-card" aria-labelledby="register-title">
-        <p className="eyebrow">ZPay Merchant</p>
+        <p className="eyebrow">ZOERDWALLET Merchant</p>
         <h1 id="register-title">Create account</h1>
         <p>Use a strong password with at least 12 characters.</p>
         <form onSubmit={handleSubmit}>

@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       manifest: {
-        name: "ZPay Merchant Dashboard",
-        short_name: "ZPay",
+        name: "ZOERDWALLET Merchant Dashboard",
+        short_name: "ZOERDWALLET",
         display: "standalone",
         background_color: "#202124",
         theme_color: "#d4af37",

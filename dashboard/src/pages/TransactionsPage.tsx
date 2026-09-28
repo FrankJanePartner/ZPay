@@ -107,7 +107,7 @@ export function TransactionsPage() {
     <section className="transactions-page" aria-labelledby="transactions-title">
       <div className="dashboard-heading">
         <div>
-          <p className="eyebrow">ZPay Merchant</p>
+          <p className="eyebrow">ZOERDWALLET Merchant</p>
           <h1 id="transactions-title">Transactions</h1>
         </div>
       </div>

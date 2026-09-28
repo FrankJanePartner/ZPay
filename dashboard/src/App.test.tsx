@@ -5,6 +5,6 @@ import { App } from "./App";
 it("identifies the merchant dashboard", () => {
   render(<App />);
   expect(
-    screen.getByRole("heading", { name: /zpay merchant dashboard/i }),
+    screen.getByRole("heading", { name: /zoerdwallet merchant dashboard/i }),
   ).toBeVisible();
 });

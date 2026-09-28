@@ -1,1 +1,1 @@
-# ZPay
+# ZOERDWALLET

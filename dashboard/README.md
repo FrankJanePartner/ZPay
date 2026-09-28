@@ -1,6 +1,6 @@
-# ZPay Merchant Dashboard
+# ZOERDWALLET Merchant Dashboard
 
-The dashboard is a Vite/React progressive web app for a merchant's ZPay account. It reads balances and received outputs from the ZPay API; it never treats browser state or a service-worker cache as financial truth.
+The dashboard is a Vite/React progressive web app for a merchant's ZOERDWALLET account. It reads balances and received outputs from the ZOERDWALLET API; it never treats browser state or a service-worker cache as financial truth. The production application is hosted at `https://www.zoerdpay.com` and uses `https://api.zoerd.com` for its API.
 
 ## Local development
 
@@ -28,7 +28,7 @@ The PWA artifact test makes a separate temporary production build and checks the
 
 ## Authentication and API keys
 
-Dashboard bearer tokens are held in `sessionStorage`, so they are scoped to the browser tab and removed when the tab session ends or the API rejects the session. This reduces persistence but does not protect against script running in the same origin. Keep a strict dependency and content-security policy, serve only over HTTPS, and never persist an issued integration key in browser storage. Newly issued API-key secrets are displayed once and must be copied to the merchant's server-side secret store.
+Dashboard bearer tokens are held in `sessionStorage`, so they are scoped to the browser tab and removed when the tab session ends or the API rejects the session. The existing `zpay.dashboard.token` storage key is retained so a branding deployment does not silently discard open tab sessions. This reduces persistence but does not protect against script running in the same origin. Keep a strict dependency and content-security policy, serve only over HTTPS, and never persist an issued integration key in browser storage. Newly issued API-key secrets are displayed once and must be copied to the merchant's server-side secret store.
 
 ## Vercel and API deployment
 

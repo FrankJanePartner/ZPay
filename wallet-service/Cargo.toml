@@ -1,5 +1,5 @@
 [package]
-name = "zpay-wallet-service"
+name = "zoerdwallet-wallet-service"
 version = "0.1.0"
 edition = "2021"
 

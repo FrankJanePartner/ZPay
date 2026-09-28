@@ -1,4 +1,6 @@
-# ZPay wallet service — address allocation stage
+# ZOERDWALLET Wallet Service
+
+The crate and executable are now `zoerdwallet-wallet-service`; update any external service unit that invokes the old executable name. The existing `ZPAY_*` environment variables and wallet data directory are unchanged.
 
 This Linux/WSL service reuses the existing wallet storage, address and network modules without Tauri.
 It currently supports MAINNET because the reused wallet engine hardcodes that network.

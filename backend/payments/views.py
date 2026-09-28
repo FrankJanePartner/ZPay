@@ -20,7 +20,7 @@ class Health(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     def get(self, request):
-        return Response({"service": "ZPay API", "status": "ok", "settlement_enabled": False})
+        return Response({"service": "ZOERDWALLET API", "status": "ok", "settlement_enabled": False})
 
 class Register(APIView):
     authentication_classes = []

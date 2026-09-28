@@ -1,3 +1,3 @@
 export function App() {
-  return <h1>ZPay Merchant Dashboard</h1>;
+  return <h1>ZOERDWALLET Merchant Dashboard</h1>;
 }

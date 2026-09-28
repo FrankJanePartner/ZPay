@@ -233,7 +233,7 @@ function App() {
   if (walletExists === null) {
     return (
       <main className="app">
-        <h1>ZOERDHUB Wallet</h1>
+        <h1>ZOERDWALLET</h1>
         <p>Opening wallet...</p>
       </main>
     );
@@ -243,7 +243,7 @@ function App() {
     return (
       <main className="app">
         <section className="card hero">
-          <h1>ZOERDHUB Wallet</h1>
+          <h1>ZOERDWALLET</h1>
           <p className="muted">
             Private Zcash wallet powered by Zebra and lightwalletd.
           </p>
@@ -301,7 +301,7 @@ function App() {
     <main className="app">
       <header className="topbar">
         <div>
-          <h1>ZOERDHUB Wallet</h1>
+          <h1>ZOERDWALLET</h1>
           <p className="muted">Zcash Mainnet</p>
         </div>
 

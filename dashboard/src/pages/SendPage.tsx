@@ -174,7 +174,7 @@ export function SendPage() {
     <section className="send-page" aria-labelledby="send-title">
       <div className="dashboard-heading">
         <div>
-          <p className="eyebrow">ZPay Merchant</p>
+          <p className="eyebrow">ZOERDWALLET Merchant</p>
           <h1 id="send-title">Send ZEC</h1>
         </div>
       </div>
