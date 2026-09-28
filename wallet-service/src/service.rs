@@ -29,6 +29,7 @@ pub struct SendInput {
     request_id: Uuid,
     recipient_address: String,
     amount_zatoshis: u64,
+    memo: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -160,6 +161,7 @@ async fn send_inner(app: &App, input: SendInput) -> Result<SendResult, String> {
         &created.recovery_phrase,
         &input.recipient_address,
         input.amount_zatoshis,
+        input.memo.as_deref(),
     )
     .await;
 

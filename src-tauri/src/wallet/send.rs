@@ -7,6 +7,7 @@ use zcash_address::ZcashAddress;
 use zcash_keys::keys::UnifiedSpendingKey;
 use zcash_protocol::{
     consensus::Network,
+    memo::Memo,
     value::Zatoshis,
 };
 
@@ -82,9 +83,26 @@ pub fn zatoshis_from_zec(
 pub fn transaction_request(
     recipient: ZcashAddress,
     amount: Zatoshis,
+    memo: Option<&str>,
 ) -> Result<TransactionRequest, String> {
-    let payment =
-        Payment::without_memo(recipient, amount);
+    let memo_bytes = memo
+        .map(|value| {
+            value
+                .parse::<Memo>()
+                .map(|m| m.encode())
+                .map_err(|e| format!("Invalid memo: {e}"))
+        })
+        .transpose()?;
+
+    let payment = Payment::new(
+        recipient,
+        Some(amount),
+        memo_bytes,
+        None,
+        None,
+        vec![],
+    )
+    .map_err(|e| format!("Failed to construct payment: {e}"))?;
 
     TransactionRequest::new(vec![payment])
         .map_err(|e| {
@@ -134,6 +152,7 @@ pub fn build_signed_transaction<P: AsRef<std::path::Path>>(
     recovery_phrase: &str,
     recipient: ZcashAddress,
     amount: Zatoshis,
+    memo: Option<&str>,
 ) -> Result<Vec<TxId>, String> {
     let network = Network::MainNetwork;
 
@@ -151,6 +170,7 @@ pub fn build_signed_transaction<P: AsRef<std::path::Path>>(
         transaction_request(
             recipient,
             amount,
+            memo,
         )?;
 
     let mut db =
@@ -356,6 +376,7 @@ pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
     recovery_phrase: &str,
     recipient_address: &str,
     amount_zatoshis: u64,
+    memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let recipient = recipient_address
         .trim()
@@ -370,6 +391,7 @@ pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
         recovery_phrase,
         recipient,
         amount,
+        memo,
     )?;
 
     broadcast_signed_transactions(
@@ -407,6 +429,7 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
             recovery_phrase,
             recipient,
             amount,
+            None,
         )?;
 
     broadcast_signed_transactions(

@@ -11,12 +11,15 @@ if not SECRET_KEY:
         raise RuntimeError("Set ZPAY_SECRET_KEY; use ZPAY_DEBUG=1 only for local development.")
     SECRET_KEY = "local-development-only-do-not-deploy"
 ALLOWED_HOSTS = os.environ.get("ZPAY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
-INSTALLED_APPS = ["django.contrib.auth", "django.contrib.contenttypes", "corsheaders", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
+INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "corsheaders", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
 MIDDLEWARE = [
     "config.middleware.NoStoreApiMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -60,7 +63,17 @@ CORS_ALLOW_CREDENTIALS = False
 CORS_ALLOW_HEADERS = [*default_headers, "idempotency-key"]
 CORS_EXPOSE_HEADERS = ["Retry-After"]
 
-TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "APP_DIRS": True}]
+TEMPLATES = [{
+    "BACKEND": "django.template.backends.django.DjangoTemplates",
+    "APP_DIRS": True,
+    "OPTIONS": {
+        "context_processors": [
+            "django.template.context_processors.request",
+            "django.contrib.auth.context_processors.auth",
+            "django.contrib.messages.context_processors.messages",
+        ],
+    },
+}]
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 SPECTACULAR_SETTINGS = {

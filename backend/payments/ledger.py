@@ -14,7 +14,7 @@ class DepositOutput(serializers.ModelSerializer):
     late = serializers.SerializerMethodField()
     class Meta:
         model = Deposit
-        fields = ["id", "payment_request", "txid", "pool", "output_index", "amount_zatoshis", "address", "mined_height", "block_time", "confirmations", "status", "late", "first_seen_at"]
+        fields = ["id", "payment_request", "txid", "pool", "output_index", "amount_zatoshis", "memo", "address", "mined_height", "block_time", "confirmations", "status", "late", "first_seen_at"]
     def get_amount_zatoshis(self, obj) -> str:
         return str(obj.amount_zatoshis)
     def get_confirmations(self, obj) -> int:

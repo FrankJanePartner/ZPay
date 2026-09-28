@@ -44,6 +44,7 @@ def send_zec(send_request):
         "request_id": str(send_request.id),
         "recipient_address": send_request.recipient_address,
         "amount_zatoshis": send_request.amount_zatoshis,
+        "memo": send_request.memo or None,
     }).encode()
 
     request = Request(

@@ -57,6 +57,7 @@ class PaymentOutput(serializers.ModelSerializer):
 class SendInput(serializers.Serializer):
     recipient_address = serializers.CharField(max_length=1024)
     amount_zatoshis = serializers.RegexField(r"^[1-9][0-9]{0,15}$")
+    memo = serializers.CharField(required=False, allow_blank=True, max_length=512)
 
     def validate_recipient_address(self, value):
         value = value.strip()
@@ -70,6 +71,11 @@ class SendInput(serializers.Serializer):
             raise serializers.ValidationError("Amount exceeds the Zcash monetary range.")
         return amount
 
+    def validate_memo(self, value):
+        if len(value.encode("utf-8")) > 512:
+            raise serializers.ValidationError("Memo exceeds the 512-byte Zcash memo limit.")
+        return value
+
 
 class SendOutput(serializers.ModelSerializer):
     amount_zatoshis = serializers.SerializerMethodField()
@@ -80,6 +86,7 @@ class SendOutput(serializers.ModelSerializer):
             "id",
             "recipient_address",
             "amount_zatoshis",
+            "memo",
             "status",
             "txids",
             "error",

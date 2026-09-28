@@ -17,7 +17,7 @@ pub fn read(path: &Path, merchant_id: &str) -> Result<Value, String> {
 }
 
 fn read_outputs(db: &Connection, tip: u32) -> Result<Vec<Value>, String> {
-    let mut query = db.prepare("SELECT t.txid, r.pool, r.output_index, r.value, a.address, t.mined_height, b.time
+    let mut query = db.prepare("SELECT t.txid, r.pool, r.output_index, r.value, r.memo, a.address, t.mined_height, b.time
         FROM v_received_outputs r JOIN transactions t ON t.id_tx = r.transaction_id
         JOIN blocks b ON b.height = t.mined_height
         LEFT JOIN addresses a ON a.id = r.address_id
@@ -28,8 +28,9 @@ fn read_outputs(db: &Connection, tip: u32) -> Result<Vec<Value>, String> {
         txid.reverse(); // SDK stores consensus-order bytes; explorers use reversed hex.
         Ok(json!({"txid": hex::encode(txid), "pool": r.get::<_, u32>(1)?,
             "output_index": r.get::<_, u32>(2)?, "amount_zatoshis": r.get::<_, u64>(3)?.to_string(),
-            "address": r.get::<_, Option<String>>(4)?, "mined_height": r.get::<_, u32>(5)?,
-            "block_time": r.get::<_, u64>(6)?}))
+            "memo": r.get::<_, Option<Vec<u8>>>(4)?.and_then(|bytes| String::from_utf8(bytes).ok()),
+            "address": r.get::<_, Option<String>>(5)?, "mined_height": r.get::<_, u32>(6)?,
+            "block_time": r.get::<_, u64>(7)?}))
     }).map_err(|e| e.to_string())?;
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 
@@ -56,11 +57,11 @@ mod tests {
         db.execute_batch("CREATE TABLE transactions(id_tx INTEGER, txid BLOB, mined_height INTEGER);
             CREATE TABLE blocks(height INTEGER, time INTEGER);
             CREATE TABLE addresses(id INTEGER, address TEXT);
-            CREATE TABLE v_received_outputs(transaction_id INTEGER, pool INTEGER, output_index INTEGER, value INTEGER, address_id INTEGER, is_change INTEGER, sent_note_id INTEGER);
+            CREATE TABLE v_received_outputs(transaction_id INTEGER, pool INTEGER, output_index INTEGER, value INTEGER, memo BLOB, address_id INTEGER, is_change INTEGER, sent_note_id INTEGER);
             INSERT INTO transactions VALUES(1, X'0102', 99), (2, X'0304', NULL);
             INSERT INTO blocks VALUES(99, 1700000000);
             INSERT INTO addresses VALUES(1, 'test-address');
-            INSERT INTO v_received_outputs VALUES(1,3,0,100,1,0,NULL), (1,3,1,200,1,1,NULL), (1,3,2,300,1,0,1), (2,3,0,400,1,0,NULL);").unwrap();
+            INSERT INTO v_received_outputs VALUES(1,3,0,100,X'68656C6C6F',1,0,NULL), (1,3,1,200,NULL,1,1,NULL), (1,3,2,300,NULL,1,0,1), (2,3,0,400,NULL,1,0,NULL);").unwrap();
         let rows = read_outputs(&db, 100).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["txid"], "0201");

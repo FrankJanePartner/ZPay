@@ -23,6 +23,19 @@ class WalletSyncTests(TestCase):
     def run_sync(self, data=None):
         with patch("payments.sync.fetch_snapshot", return_value=self.data if data is None else data):
             return sync_owner(self.user.pk)
+    def test_incoming_memo_is_persisted(self):
+        data = copy.deepcopy(self.data)
+        data["outputs"][0]["memo"] = "Payment for order #123"
+        self.run_sync(data)
+        self.assertEqual(Deposit.objects.get().memo, "Payment for order #123")
+
+    def test_oversized_incoming_memo_is_rejected(self):
+        data = copy.deepcopy(self.data)
+        data["outputs"][0]["memo"] = "x" * 513
+        with self.assertRaises(ValueError):
+            self.run_sync(data)
+        self.assertEqual(Deposit.objects.count(), 0)
+
     def test_replays_and_late_deposits_are_attributed_once(self):
         self.run_sync(); self.run_sync()
         self.assertEqual(Deposit.objects.count(), 1)

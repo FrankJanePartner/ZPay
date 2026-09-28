@@ -144,6 +144,7 @@ class Sends(generics.ListCreateAPIView):
         if (
             send_request.recipient_address != values["recipient_address"]
             or send_request.amount_zatoshis != values["amount_zatoshis"]
+            or send_request.memo != values.get("memo", "")
         ):
             return Response(
                 {"detail": "Idempotency-Key already used with a different payload."},

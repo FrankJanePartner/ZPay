@@ -50,12 +50,15 @@ def validate_snapshot(owner_id, data):
         address = row["address"]
         if address is not None and (not isinstance(address, str) or not 1 <= len(address) <= 1024):
             raise ValueError("Invalid output address")
+        memo = row.get("memo")
+        if memo is not None and (not isinstance(memo, str) or len(memo.encode("utf-8")) > 512):
+            raise ValueError("Invalid output memo")
         value = amount(row["amount_zatoshis"])
         if not value:
             continue
         block_time = datetime.fromtimestamp(height(row["block_time"]), tz=dt_timezone.utc)
         outputs.append(dict(txid=txid, pool=pool, output_index=index, amount_zatoshis=value,
-                            address=address, mined_height=mined, block_time=block_time))
+                            memo=memo or "", address=address, mined_height=mined, block_time=block_time))
     return tip, totals, outputs
 
 def sync_timeout():
