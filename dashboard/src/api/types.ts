@@ -31,6 +31,7 @@ export interface SendRequest {
   id: string;
   recipient_address: string;
   amount_zatoshis: string;
+  memo: string;
   status: "pending" | "broadcast" | "failed";
   txids: string[];
   error: string;
@@ -64,6 +65,7 @@ export interface DepositOutput {
   pool: number;
   output_index: number;
   amount_zatoshis: string;
+  memo: string;
   address: string | null;
   mined_height: number;
   block_time: string;

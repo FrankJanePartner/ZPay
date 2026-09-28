@@ -29,6 +29,7 @@ const recentOutput = {
   pool: 3,
   output_index: 0,
   amount_zatoshis: "100000000",
+  memo: "Payment for order #123",
   address: "u1examplefulladdress",
   mined_height: 3484368,
   block_time: "2026-09-15T16:00:00Z",

@@ -68,6 +68,7 @@ function RecentOutput({ output }: { output: DepositOutput }) {
             <CopyButton label="payment ID" value={output.payment_request} />
           </>
         ) : null}
+        {output.memo ? <span title={output.memo}>Memo: {output.memo}</span> : null}
       </div>
     </li>
   );

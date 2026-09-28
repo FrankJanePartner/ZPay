@@ -256,6 +256,7 @@ it("models a deposit with no receiving address", () => {
     pool: 3,
     output_index: 0,
     amount_zatoshis: "100000",
+    memo: "",
     address: null,
     mined_height: 3484368,
     block_time: "2026-09-15T16:00:00Z",

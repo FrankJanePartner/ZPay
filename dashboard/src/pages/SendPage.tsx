@@ -71,6 +71,7 @@ export function SendPage() {
   const refresh = useFinancialRefresh();
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof sendZec>> | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -100,6 +101,7 @@ export function SendPage() {
         {
           recipient_address: recipient.trim(),
           amount_zatoshis: amountZatoshis,
+          ...(memo.trim() ? { memo: memo.trim() } : {}),
         },
         key,
       );
@@ -229,6 +231,23 @@ export function SendPage() {
               }}
             />
 
+            <label htmlFor="send-memo">Memo / Message (optional)</label>
+            <textarea
+              id="send-memo"
+              value={memo}
+              maxLength={512}
+              rows={3}
+              placeholder="Optional message to include with the Zcash transaction"
+              disabled={sendMutation.isPending}
+              onChange={(event) => {
+                setMemo(event.target.value);
+                setValidationError(null);
+                setIdempotencyKey(null);
+                sendMutation.reset();
+              }}
+            />
+            <p className="field-hint">{new TextEncoder().encode(memo).length}/512 bytes</p>
+
             {amountZatoshis ? (
               <p className="field-hint">
                 {amountZatoshis} zatoshis
@@ -282,6 +301,12 @@ export function SendPage() {
                 <dt>Amount in zatoshis</dt>
                 <dd>{amountZatoshis}</dd>
               </div>
+              {memo.trim() ? (
+                <div>
+                  <dt>Memo / Message</dt>
+                  <dd>{memo.trim()}</dd>
+                </div>
+              ) : null}
             </dl>
 
             <p className="audit-note">

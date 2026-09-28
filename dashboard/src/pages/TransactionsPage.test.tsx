@@ -21,6 +21,7 @@ const confirmed: DepositOutput = {
   pool: 3,
   output_index: 7,
   amount_zatoshis: "123456789",
+  memo: "Payment for order #123",
   address: "u1example",
   mined_height: 3484368,
   block_time: "2026-09-15T16:00:00Z",
@@ -32,6 +33,7 @@ const confirmed: DepositOutput = {
 
 const reversed: DepositOutput = {
   ...confirmed,
+  memo: "",
   id: "bf70160c-2f98-4c7e-b866-c4947f4d9d20",
   payment_request: null,
   txid: "ef".repeat(32),
@@ -92,6 +94,7 @@ describe("transactions page", () => {
     expect(screen.getByText("Pool 3")).toBeVisible();
     expect(screen.getByText("Output 7")).toBeVisible();
     expect(screen.getByText("1.23456789 ZEC")).toBeVisible();
+    expect(screen.getByText("Payment for order #123")).toBeVisible();
     expect(screen.getByText(/reversed outputs remain visible for audit/i)).toBeVisible();
   });
 

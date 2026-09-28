@@ -61,6 +61,13 @@ function TransactionRow({ output }: { output: DepositOutput }) {
           <span className="transaction-flag">Unmatched output</span>
         )}
       </td>
+      <td data-label="Memo">
+        {output.memo ? (
+          <span title={output.memo}>{output.memo}</span>
+        ) : (
+          <span className="transaction-flag">No memo</span>
+        )}
+      </td>
     </tr>
   );
 }
@@ -153,6 +160,7 @@ export function TransactionsPage() {
                 <th scope="col">Transaction ID</th>
                 <th scope="col">Status</th>
                 <th scope="col">Payment request</th>
+                <th scope="col">Memo</th>
               </tr>
             </thead>
             <tbody>

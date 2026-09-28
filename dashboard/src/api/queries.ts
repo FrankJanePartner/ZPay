@@ -176,6 +176,7 @@ export async function createPayment(
 export interface SendZecPayload {
   recipient_address: string;
   amount_zatoshis: string;
+  memo?: string;
 }
 
 export async function sendZec(
