@@ -15,6 +15,7 @@ INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib
 MIDDLEWARE = [
     "config.middleware.NoStoreApiMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
