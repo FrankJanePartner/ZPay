@@ -50,8 +50,8 @@ export async function register(
   return requireSession(response);
 }
 
-export async function legacyLogin(email: string, password: string): Promise<SessionResponse> {
-  return requireSession(await apiRequest<SessionResponse>("/api/v1/auth/legacy-login/", {
+export async function migrateLegacy(email: string, password: string): Promise<SessionResponse> {
+  return requireSession(await apiRequest<SessionResponse>("/api/v1/auth/migrate/", {
     method: "POST", body: JSON.stringify({ email, password }),
   }));
 }
