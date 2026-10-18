@@ -237,6 +237,12 @@ class SetRecoveryEmail(APIView):
         data = RecoveryEmailInput(data=request.data)
         data.is_valid(raise_exception=True)
         email = data.validated_data["email"].lower()
+        raw_key = request.data.get("login_key")
+        if not isinstance(raw_key, str) or not 32 <= len(raw_key) <= 256:
+            return Response({"detail": "Confirm your merchant login secret."}, status=400)
+        digest = hashlib.sha256(raw_key.encode()).hexdigest()
+        if not Credential.objects.filter(owner=request.user, kind="login", digest=digest, revoked_at__isnull=True).exists():
+            return Response({"detail": "Invalid merchant login secret."}, status=403)
         # Do not disclose whether another merchant owns an email.
         if get_user_model().objects.filter(email__iexact=email).exclude(pk=request.user.pk).exists():
             return Response({"detail": "This email cannot be used."}, status=400)
