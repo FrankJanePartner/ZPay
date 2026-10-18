@@ -11,6 +11,18 @@ class CredentialsInput(serializers.Serializer):
     email = serializers.EmailField(max_length=150)
     password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
 
+class LoginSecretInput(serializers.Serializer):
+    login_key = serializers.CharField(min_length=32, max_length=256, trim_whitespace=False)
+
+class RecoveryEmailInput(serializers.Serializer):
+    email = serializers.EmailField(max_length=150)
+
+class SignedTokenInput(serializers.Serializer):
+    token = serializers.CharField(max_length=2048)
+
+class ResetSecretInput(SignedTokenInput):
+    pass
+
 class KeyInput(serializers.Serializer):
     name = serializers.CharField(max_length=80)
 
