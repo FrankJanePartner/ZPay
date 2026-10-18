@@ -1,6 +1,7 @@
 export interface SessionResponse {
   token: string;
   expires_in: number;
+  login_key?: string;
 }
 
 export interface KeyMetadata {
