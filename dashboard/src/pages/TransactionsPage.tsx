@@ -135,11 +135,12 @@ export function TransactionsPage() {
           <table className="transactions-table">
             <thead>
               <tr>
-                <th scope="col">Direction</th>\n                <th scope="col">Amount and time</th>
-                <th scope="col">Transaction ID</th>
+                <th scope="col">Direction</th>
+                <th scope="col">Amount and time</th>
                 <th scope="col">Transaction ID</th>
                 <th scope="col">Status</th>
-                <th scope="col">Network fee</th>\n                <th scope="col">Details</th>
+                <th scope="col">Network fee</th>
+                <th scope="col">Details</th>
                 <th scope="col">Memo</th>
               </tr>
             </thead>
