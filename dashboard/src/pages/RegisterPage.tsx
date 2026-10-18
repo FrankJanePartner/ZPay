@@ -4,6 +4,7 @@ import { ApiError } from "../api/client";
 import { useApiCooldown } from "../api/liveState";
 import type { ApiErrorFields } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { register as requestRegister } from "../api/queries";
 
 function fieldMessage(fields: ApiErrorFields | undefined, name: string): string | undefined {
   const value = fields?.[name];
@@ -12,7 +13,10 @@ function fieldMessage(fields: ApiErrorFields | undefined, name: string): string 
 
 export function RegisterPage() {
   const cooldown = useApiCooldown();
-  const { register, issuedLoginKey, clearIssuedLoginKey } = useAuth();
+  const { adoptSession } = useAuth();
+  const [issuedLoginKey, setIssuedLoginKey] = useState<string | null>(null);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -38,16 +42,15 @@ export function RegisterPage() {
     setError(null);
 
     try {
-      const authenticated = await register(
+      const result = await requestRegister(
         {
           login_key: "",
         },
         controller.signal,
       );
-      if (!authenticated) {
-        return;
-      }
-      // Keep the secret visible until the merchant explicitly confirms saving it.
+      if (!result.login_key) throw new Error("Registration did not return a login secret.");
+      setIssuedLoginKey(result.login_key);
+      setPendingToken(result.token);
     } catch (caught) {
       if (controller.signal.aborted) {
         return;
@@ -71,7 +74,7 @@ export function RegisterPage() {
         <p className="eyebrow">ZOERDWALLET Merchant</p>
         <h1 id="register-title">Create account</h1>
         <p>No email, name or password required. Your private login secret is generated automatically.</p>
-        {issuedLoginKey ? <section aria-label="Your new login secret"><h2>Save your login secret</h2><textarea readOnly rows={3} value={issuedLoginKey} aria-label="One-time login secret" /><button type="button" onClick={() => navigator.clipboard.writeText(issuedLoginKey)}>Copy secret</button><p>We cannot display this secret again. Store it in a password manager.</p><button type="button" onClick={() => { clearIssuedLoginKey(); navigate("/dashboard"); }}>I have saved my secret</button></section> : <form onSubmit={handleSubmit}>
+        {issuedLoginKey ? <section aria-label="Your new login secret"><h2>Save your login secret</h2><textarea readOnly rows={3} value={issuedLoginKey} aria-label="One-time login secret" /><button type="button" onClick={() => navigator.clipboard.writeText(issuedLoginKey)}>Copy secret</button><p>We cannot display this secret again. Store it in a password manager.</p><label><input type="checkbox" checked={saved} onChange={event => setSaved(event.target.checked)} /> I have saved my secret securely</label><button type="button" disabled={!saved || !pendingToken} onClick={() => { if (pendingToken) { adoptSession(pendingToken); navigate("/dashboard"); } }}>Continue to dashboard</button></section> : <form onSubmit={handleSubmit}>
           <p><strong>Important:</strong> Save your login secret offline. If you lose it without verifying a recovery email, your dashboard may be permanently inaccessible.</p>
 
           {error ? <p role="alert" className="form-error">{error.detail}</p> : null}
