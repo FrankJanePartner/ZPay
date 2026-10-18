@@ -38,6 +38,7 @@ function App() {
 
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendAmount, setSendAmount] = useState("");
+  const [sendMemo, setSendMemo] = useState("");
   const [sendTxids, setSendTxids] = useState<string[]>([]);
   const [secureSecretAvailable, setSecureSecretAvailable] =
     useState<boolean | null>(null);
@@ -172,6 +173,15 @@ function App() {
     }
   }
 
+  function readableSendError(error: unknown) {
+    const raw = String(error);
+    if (/insufficient|not enough|balance too low|insufficientfunds/i.test(raw)) return "Insufficient funds. Please reduce the amount to cover the payment and network fee.";
+    if (/invalid.*address|unsupported.*address/i.test(raw)) return "The recipient address is invalid or unsupported.";
+    if (/memo|shielded|transparent/i.test(raw)) return "The memo could not be sent. Zcash memos require a supported shielded recipient.";
+    if (/unavailable|connection|connect|timeout|transport/i.test(raw)) return "Cannot connect to the wallet service. Check your connection and try again.";
+    return "Unable to send this payment. Please check your wallet and try again.";
+  }
+
   async function sendZec() {
     const recipient = sendRecipient.trim();
     const amount = Number(sendAmount);
@@ -197,6 +207,11 @@ function App() {
       return;
     }
 
+    if (new TextEncoder().encode(sendMemo).length > 512) {
+      setMessage("Memo must not exceed 512 bytes.");
+      return;
+    }
+
     setBusy(true);
     setMessage("");
     setSendTxids([]);
@@ -205,11 +220,13 @@ function App() {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
         amountZec: amount,
+        memo: sendMemo || null,
       });
 
       setSendTxids(txids);
       setSendRecipient("");
       setSendAmount("");
+      setSendMemo("");
 
       await refreshWallet();
 
@@ -219,7 +236,7 @@ function App() {
           : `${txids.length} transactions broadcast successfully.`
       );
     } catch (error) {
-      setMessage(`Send failed: ${String(error)}`);
+      setMessage(readableSendError(error));
     } finally {
       setBusy(false);
     }
@@ -401,6 +418,16 @@ function App() {
 
               <span>ZEC</span>
             </div>
+          </label>
+
+          <label>
+            <span className="label">Memo (optional, shielded recipients only)</span>
+            <textarea
+              value={sendMemo}
+              onChange={(e) => setSendMemo(e.target.value)}
+              placeholder="Add a private payment memo"
+              rows={3}
+            />
           </label>
 
           <button
