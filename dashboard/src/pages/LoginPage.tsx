@@ -18,8 +18,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const operation = useRef<AbortController | null>(null);
-  const emailError = fieldMessage(error?.fields, "email");
-  const passwordError = fieldMessage(error?.fields, "password");
+  const keyError = fieldMessage(error?.fields, "login_key");
 
   useEffect(
     () => () => {
@@ -42,8 +41,7 @@ export function LoginPage() {
     try {
       const authenticated = await login(
         {
-          email: String(form.get("email") ?? ""),
-          password: String(form.get("password") ?? ""),
+          login_key: String(form.get("login_key") ?? ""),
         },
         controller.signal,
       );
@@ -86,31 +84,13 @@ export function LoginPage() {
       <section className="auth-card" aria-labelledby="login-title">
         <p className="eyebrow">ZOERDWALLET Merchant</p>
         <h1 id="login-title">Sign in</h1>
-        <p>Access payments, receipts, and API credentials.</p>
+        <p>Access your private merchant dashboard with your unique login secret.</p>
         <form onSubmit={handleSubmit}>
-          <label htmlFor="login-email">Email</label>
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            aria-invalid={emailError ? true : undefined}
-            aria-describedby={emailError ? "login-email-error" : undefined}
-          />
-          {emailError ? <p id="login-email-error" className="field-error">{emailError}</p> : null}
-
-          <label htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            aria-invalid={passwordError ? true : undefined}
-            aria-describedby={passwordError ? "login-password-error" : undefined}
-          />
-          {passwordError ? <p id="login-password-error" className="field-error">{passwordError}</p> : null}
+          <label htmlFor="login-key">Merchant login secret</label>
+          <input id="login-key" name="login_key" type="password" autoComplete="off" required
+            aria-invalid={keyError ? true : undefined} />
+          {keyError ? <p className="field-error">{keyError}</p> : null}
+          <p>Keep your secret safe. Without a verified recovery email, losing it may permanently lock you out.</p>
 
           {error ? <p role="alert" className="form-error">{error.detail}</p> : null}
           {cooldown > 0 ? <p role="status">Request throttled; retry in {cooldown} seconds.</p> : null}
@@ -118,6 +98,7 @@ export function LoginPage() {
             {pending ? "Signing in…" : "Sign in"}
           </button>
         </form>
+        <p><Link to="/recover">Lost your login secret?</Link> · <Link to="/migrate">Migrate an existing email account</Link></p>
         <p>
           New to ZOERDWALLET? <Link to="/register">Create an account</Link>
         </p>
