@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useApiCooldown, useFinancialRefresh } from "../api/liveState";
 import { getTransactions } from "../api/queries";
-import type { DepositOutput } from "../api/types";
+import type { WalletActivity } from "../api/types";
 import { ErrorState, LoadingSkeleton } from "../components/AsyncState";
 import { CopyButton } from "../components/CopyButton";
 import { formatZec } from "../components/Money";
@@ -22,52 +22,32 @@ function shortTransactionId(txid: string): string {
   return txid.length <= 20 ? txid : `${txid.slice(0, 12)}…${txid.slice(-8)}`;
 }
 
-function confirmationLabel(confirmations: number): string {
-  return `${confirmations} ${confirmations === 1 ? "confirmation" : "confirmations"}`;
-}
-
-function TransactionRow({ output }: { output: DepositOutput }) {
+function TransactionRow({ output }: { output: WalletActivity }) {
+  const sent = output.direction === "sent";
+  const status = output.status.replace(/_/g, " ");
   return (
     <tr>
+      <td data-label="Direction"><strong>{sent ? "Sent" : "Received"}</strong></td>
       <td data-label="Amount">
-        <strong>{formatZec(output.amount_zatoshis)} ZEC</strong>
-        <span className="transaction-subvalue">{formatTimestamp(output.block_time)}</span>
-      </td>
-      <td data-label="Location">
-        <span>Pool {output.pool}</span>
-        <span className="transaction-subvalue">Output {output.output_index}</span>
+        <strong>{sent ? "−" : "+"}{formatZec(output.amount_zatoshis)} ZEC</strong>
+        <span className="transaction-subvalue">{formatTimestamp(output.timestamp)}</span>
+        {output.timestamp_source === "local_request" ? <span className="transaction-subvalue">Request time, not block time</span> : null}
       </td>
       <td data-label="Transaction">
-        <code title={output.txid}>{shortTransactionId(output.txid)}</code>
-        <CopyButton label="transaction ID" value={output.txid} />
+        {output.txid ? <><code title={output.txid}>{shortTransactionId(output.txid)}</code><CopyButton label="transaction ID" value={output.txid} /></> : <span className="transaction-flag">Not broadcast</span>}
       </td>
       <td data-label="Status">
-        <span className={`status-badge output-status-${output.status}`}>
-          {output.status === "confirmed" ? "Confirmed" : "Reversed"}
-        </span>
-        <span className="transaction-subvalue">{confirmationLabel(output.confirmations)}</span>
-        {output.late === true ? <span className="transaction-flag">Late payment</span> : null}
+        <span className="status-badge">{status}</span>
+        {typeof output.confirmations === "number" ? <span className="transaction-subvalue">{output.confirmations} confirmations</span> : null}
+        {output.error ? <span className="transaction-subvalue">{output.error}</span> : null}
       </td>
-      <td data-label="Payment request">
-        {output.payment_request ? (
-          <Link
-            className="transaction-payment-link"
-            to={`/payments/${output.payment_request}`}
-            aria-label="View linked payment request"
-          >
-            View request
-          </Link>
-        ) : (
-          <span className="transaction-flag">Unmatched output</span>
-        )}
+      <td data-label="Network fee">
+        {output.fee_verified && output.fee_zatoshis !== null ? <span>{formatZec(output.fee_zatoshis)} ZEC</span> : <span className="transaction-flag">Not verified</span>}
       </td>
-      <td data-label="Memo">
-        {output.memo ? (
-          <span title={output.memo}>{output.memo}</span>
-        ) : (
-          <span className="transaction-flag">No memo</span>
-        )}
+      <td data-label="Details">
+        {sent ? <span title={output.recipient_address ?? undefined}>{output.recipient_address ? `To: ${output.recipient_address.slice(0, 18)}…` : "Recipient unavailable"}</span> : output.payment_request ? <Link className="transaction-payment-link" to={`/payments/${output.payment_request}`}>View request</Link> : <span className="transaction-flag">Unmatched receipt</span>}
       </td>
+      <td data-label="Memo">{output.memo ? <span title={output.memo}>{output.memo}</span> : <span className="transaction-flag">No memo</span>}</td>
     </tr>
   );
 }
@@ -113,7 +93,7 @@ export function TransactionsPage() {
       </div>
 
       <p className="audit-note">
-        Reversed outputs remain visible for audit and are excluded from active received totals.
+        Sent requests and received outputs appear together. Pending sends and unverified fees are not blockchain confirmations.
       </p>
 
       {transactionsQuery.isLoading ? (
@@ -121,8 +101,8 @@ export function TransactionsPage() {
       ) : null}
       {transactionsQuery.isError ? (
         <ErrorState error={transactionsQuery.error}>
-          <p>{error ?? "Unable to load received outputs."}</p>
-          {page ? <p>Showing the last available outputs; confirmations may be out of date.</p> : null}
+          <p>{error ?? "Unable to load wallet activity."}</p>
+          {page ? <p>Showing the last available activity; statuses may be out of date.</p> : null}
           <div className="error-actions">
             <button
               type="button"
@@ -146,7 +126,7 @@ export function TransactionsPage() {
       ) : null}
       {page?.results.length === 0 ? (
         <div className="empty-state transaction-empty-state">
-          <p>No received outputs yet.</p>
+          <p>No wallet activity yet.</p>
           <Link className="button-link" to="/payments">Create payment request</Link>
         </div>
       ) : null}
@@ -155,11 +135,11 @@ export function TransactionsPage() {
           <table className="transactions-table">
             <thead>
               <tr>
-                <th scope="col">Amount and block time</th>
-                <th scope="col">Pool and output</th>
+                <th scope="col">Direction</th>\n                <th scope="col">Amount and time</th>
+                <th scope="col">Transaction ID</th>
                 <th scope="col">Transaction ID</th>
                 <th scope="col">Status</th>
-                <th scope="col">Payment request</th>
+                <th scope="col">Network fee</th>\n                <th scope="col">Details</th>
                 <th scope="col">Memo</th>
               </tr>
             </thead>
