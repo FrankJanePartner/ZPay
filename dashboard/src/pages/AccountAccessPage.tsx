@@ -41,7 +41,7 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
         // Session is adopted only after the merchant confirms the secret is saved.
         setNewToken(result.token);
       } else if (mode === "settings") {
-        await setRecoveryEmail(String(data.get("email")));
+        await setRecoveryEmail(String(data.get("email")), String(data.get("login_key")));
         setMessage("Verification link sent. Check your inbox and verify your address.");
       } else if (mode === "verify") {
         await verifyRecoveryEmail(params.get("token") ?? "");
@@ -82,6 +82,7 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
       {mode === "migrate" || mode === "settings" || (mode === "recover" && !recoveryLink) ? <>
         <label htmlFor="access-email">Email</label><input id="access-email" name="email" type="email" autoComplete="email" required />
       </> : null}
+      {mode === "settings" ? <><label htmlFor="access-secret">Confirm merchant login secret</label><input id="access-secret" name="login_key" type="password" autoComplete="off" required /></> : null}
       {mode === "migrate" ? <><label htmlFor="access-password">Existing password</label><input id="access-password" name="password" type="password" autoComplete="current-password" required /></> : null}
       {error ? <p role="alert" className="form-error">{error}</p> : null}
       {message ? <p role="status">{message}</p> : null}
