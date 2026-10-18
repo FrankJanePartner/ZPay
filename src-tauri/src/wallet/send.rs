@@ -407,6 +407,7 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
     recovery_phrase: &str,
     recipient_address: &str,
     amount_zec: f64,
+    memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let recipient =
         recipient_address
