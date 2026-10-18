@@ -57,6 +57,10 @@ EMAIL_PORT = int(os.environ.get("ZPAY_SMTP_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("ZPAY_SMTP_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("ZPAY_SMTP_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("ZPAY_SMTP_TLS", "1") == "1"
+EMAIL_USE_SSL = os.environ.get("ZPAY_SMTP_SSL", "0") == "1"
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise RuntimeError("Configure only one of ZPAY_SMTP_TLS and ZPAY_SMTP_SSL.")
+EMAIL_TIMEOUT = 15
 DEFAULT_FROM_EMAIL = os.environ.get("ZPAY_FROM_EMAIL", "no-reply@zoerd.com")
 SECURE_REFERRER_POLICY = "no-referrer"
 SECURE_CONTENT_TYPE_NOSNIFF = True
