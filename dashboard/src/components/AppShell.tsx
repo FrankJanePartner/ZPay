@@ -11,6 +11,7 @@ const navigationItems = [
   { to: "/send", label: "Send ZEC" },
   { to: "/transactions", label: "Transactions" },
   { to: "/api-keys", label: "API Keys" },
+  { to: "/recovery-settings", label: "Recovery email" },
 ];
 
 function useNarrowViewport(): boolean {
