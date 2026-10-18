@@ -6,7 +6,16 @@ const environment = (import.meta as ImportMeta & {
   env?: { VITE_API_BASE_URL?: string };
 }).env;
 
-export const API_ORIGIN = (environment?.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
+// Local Vite preview uses its same-origin /api proxy, even if an older
+// .env.local still points directly at Gunicorn. Never override production URLs.
+const isLocalPreview = typeof window !== "undefined"
+  && window.location.protocol === "http:"
+  && ["localhost", "127.0.0.1"].includes(window.location.hostname)
+  && window.location.port === "4173";
+
+export const API_ORIGIN = (
+  isLocalPreview ? window.location.origin : (environment?.VITE_API_BASE_URL ?? "http://127.0.0.1:8000")
+).replace(/\/+$/, "");
 
 const GENERIC_ERROR_DETAIL = "Request failed. Please try again.";
 const NETWORK_ERROR_DETAIL = "Network request failed. Check your connection and try again.";
