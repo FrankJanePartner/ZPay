@@ -24,7 +24,7 @@ function shortTransactionId(txid: string): string {
 
 function TransactionRow({ output }: { output: WalletActivity }) {
   const sent = output.direction === "sent";
-  const status = output.status.replace(/_/g, " ");
+  const status = output.status.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase());
   return (
     <tr>
       <td data-label="Direction"><strong>{sent ? "Sent" : "Received"}</strong></td>
@@ -45,7 +45,10 @@ function TransactionRow({ output }: { output: WalletActivity }) {
         {output.fee_verified && output.fee_zatoshis !== null ? <span>{formatZec(output.fee_zatoshis)} ZEC</span> : <span className="transaction-flag">Not verified</span>}
       </td>
       <td data-label="Details">
-        {sent ? <span title={output.recipient_address ?? undefined}>{output.recipient_address ? `To: ${output.recipient_address.slice(0, 18)}…` : "Recipient unavailable"}</span> : output.payment_request ? <Link className="transaction-payment-link" to={`/payments/${output.payment_request}`}>View request</Link> : <span className="transaction-flag">Unmatched receipt</span>}
+        {!sent && output.late === true ? <span className="transaction-flag">Late payment</span> : null}
+        {!sent && typeof output.pool === "number" ? <span className="transaction-subvalue">Pool {output.pool}</span> : null}
+        {!sent && typeof output.output_index === "number" ? <span className="transaction-subvalue">Output {output.output_index}</span> : null}
+        {sent ? <span title={output.recipient_address ?? undefined}>{output.recipient_address ? `To: ${output.recipient_address.slice(0, 18)}…` : "Recipient unavailable"}</span> : output.payment_request ? <Link className="transaction-payment-link" to={`/payments/${output.payment_request}`}>View linked payment request</Link> : <span className="transaction-flag">Unmatched output</span>}
       </td>
       <td data-label="Memo">{output.memo ? <span title={output.memo}>{output.memo}</span> : <span className="transaction-flag">No memo</span>}</td>
     </tr>
@@ -93,7 +96,7 @@ export function TransactionsPage() {
       </div>
 
       <p className="audit-note">
-        Sent requests and received outputs appear together. Pending sends and unverified fees are not blockchain confirmations.
+        Sent requests and received outputs appear together; reversed outputs remain visible for audit. Pending sends and unverified fees are not blockchain confirmations.
       </p>
 
       {transactionsQuery.isLoading ? (
