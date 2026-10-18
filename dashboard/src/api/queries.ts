@@ -12,8 +12,7 @@ import type {
 } from "./types";
 
 export interface Credentials {
-  email: string;
-  password: string;
+  login_key: string;
 }
 
 function requireSession(response: SessionResponse | undefined): SessionResponse {
@@ -40,15 +39,40 @@ export async function login(
 }
 
 export async function register(
-  credentials: Credentials,
+  _credentials: Credentials,
   signal?: AbortSignal,
 ): Promise<SessionResponse> {
   const response = await apiRequest<SessionResponse>("/api/v1/auth/register/", {
     method: "POST",
-    body: JSON.stringify(credentials),
+    body: JSON.stringify({}),
     signal,
   });
   return requireSession(response);
+}
+
+export async function legacyLogin(email: string, password: string): Promise<SessionResponse> {
+  return requireSession(await apiRequest<SessionResponse>("/api/v1/auth/legacy-login/", {
+    method: "POST", body: JSON.stringify({ email, password }),
+  }));
+}
+
+export async function activateLoginKey(): Promise<{login_key: string}> {
+  const response = await apiRequest<{login_key: string}>("/api/v1/auth/activate-key/", { method: "POST" });
+  if (!response) throw new Error("Unable to activate login key");
+  return response;
+}
+
+export async function setRecoveryEmail(email: string): Promise<void> {
+  await apiRequest("/api/v1/auth/recovery-email/", {method:"POST",body:JSON.stringify({email})});
+}
+export async function verifyRecoveryEmail(token: string): Promise<void> {
+  await apiRequest("/api/v1/auth/verify-email/", {method:"POST",body:JSON.stringify({token})});
+}
+export async function requestRecovery(email: string): Promise<void> {
+  await apiRequest("/api/v1/auth/request-recovery/", {method:"POST",body:JSON.stringify({email})});
+}
+export async function completeRecovery(uid: string, token: string): Promise<SessionResponse> {
+  return requireSession(await apiRequest<SessionResponse>("/api/v1/auth/complete-recovery/", {method:"POST",body:JSON.stringify({uid,token})}));
 }
 
 export async function logout(): Promise<void> {
