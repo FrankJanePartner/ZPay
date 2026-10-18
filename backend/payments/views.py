@@ -178,14 +178,36 @@ class LegacyMigrate(APIView):
             return Response({"detail": "Invalid credentials."}, status=401)
         with transaction.atomic():
             user = get_user_model().objects.select_for_update().get(pk=user.pk)
-            if Credential.objects.filter(owner=user, kind="login").exists():
+            if not user.has_usable_password():
                 return Response({"detail": "Account already migrated."}, status=409)
             raw = _issue_login_key(user)
-            user.set_unusable_password()
-            user.save(update_fields=["password"])
-            Credential.objects.filter(owner=user, kind="session").update(revoked_at=timezone.now())
             session = _issue_session(user)
         return Response({**session, "login_key": raw}, status=201)
+
+
+class ConfirmLegacyMigrate(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    def post(self, request):
+        data = LoginSecretInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        digest = hashlib.sha256(data.validated_data["login_key"].encode()).hexdigest()
+        with transaction.atomic():
+            key = Credential.objects.select_related("owner").filter(
+                digest=digest, kind="login", revoked_at__isnull=True
+            ).first()
+            if key is None:
+                return Response({"detail": "Invalid login secret."}, status=401)
+            user = get_user_model().objects.select_for_update().get(pk=key.owner_id)
+            if user.has_usable_password():
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
+                Credential.objects.filter(owner=user, kind="session").update(revoked_at=timezone.now())
+            session = _issue_session(user)
+        return Response(session)
 
 
 class ActivateLoginSecret(APIView):
