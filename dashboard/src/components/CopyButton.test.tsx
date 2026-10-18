@@ -51,6 +51,11 @@ function respondWithDashboard() {
         results: [
           {
             id: "db32a049-4b34-4c48-ae39-072c5f9395c00",
+            direction: "received",
+            timestamp: "2026-09-15T16:00:00Z",
+            timestamp_source: "block",
+            fee_zatoshis: null,
+            fee_verified: false,
             payment_request: "0787e217-5be4-4258-a9d1-ca991c2558c4",
             txid: transactionId,
             pool: 3,
