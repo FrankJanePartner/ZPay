@@ -44,11 +44,21 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.AnonRateThrottle", "rest_framework.throttling.UserRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"anon": "30/min", "user": "120/min"},
+    "DEFAULT_THROTTLE_RATES": {"anon": "30/min", "user": "120/min", "auth": "5/min"},
 }
 # The Rust service is a private dependency; no caller-supplied URL is accepted.
 WALLET_SERVICE_URL = os.environ.get("ZPAY_WALLET_URL", "")
 WALLET_SERVICE_TOKEN = os.environ.get("ZPAY_WALLET_TOKEN", "")
+PASSWORD_RESET_TIMEOUT = 3600
+DASHBOARD_ORIGIN = os.environ.get("ZPAY_DASHBOARD_ORIGIN", "http://localhost:5173" if DEBUG else "")
+EMAIL_BACKEND = os.environ.get("ZPAY_EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("ZPAY_SMTP_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("ZPAY_SMTP_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("ZPAY_SMTP_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("ZPAY_SMTP_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("ZPAY_SMTP_TLS", "1") == "1"
+DEFAULT_FROM_EMAIL = os.environ.get("ZPAY_FROM_EMAIL", "no-reply@zoerd.com")
+SECURE_REFERRER_POLICY = "no-referrer"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
