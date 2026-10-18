@@ -1,7 +1,6 @@
 import { API_ORIGIN, ApiError, apiRequest } from "./client";
 import type { CreatePaymentPayload } from "../payments/idempotency";
 import type {
-  DepositOutput,
   IssuedKey,
   KeyMetadata,
   Paginated,
@@ -92,7 +91,7 @@ function paginationPath(pageUrl: string, expectedPath: string): string {
 export async function getTransactions(
   pageUrl = "/api/v1/transactions/",
   signal?: AbortSignal,
-): Promise<Paginated<DepositOutput>> {
+): Promise<Paginated<WalletActivity>> {
   const response = await apiRequest<Paginated<WalletActivity>>(paginationPath(pageUrl, "/api/v1/transactions/"), {
     signal,
   });
