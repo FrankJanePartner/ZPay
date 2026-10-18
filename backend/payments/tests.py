@@ -411,7 +411,7 @@ class PrivateMerchantAuthTests(APITestCase):
         created = self.client.post("/api/v1/auth/register/", {}, format="json")
         key = created.data["login_key"]
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + created.data["token"])
-        requested = self.client.post("/api/v1/auth/recovery-email/", {"email": "recover@example.com"}, format="json")
+        requested = self.client.post("/api/v1/auth/recovery-email/", {"email": "recover@example.com", "login_key": key}, format="json")
         self.assertEqual(requested.status_code, 200)
         link = mail.outbox[-1].body.split("https://wallet.example.test")[-1].split()[0]
         token = parse_qs(urlparse(link).query)["token"][0]
