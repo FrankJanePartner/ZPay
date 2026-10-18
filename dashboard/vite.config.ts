@@ -2,7 +2,18 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Local development and preview only. Production must terminate HTTPS at a trusted proxy.
+const localApiProxy = {
+  "/api": {
+    target: "http://127.0.0.1:8000",
+    changeOrigin: true,
+    headers: { "X-Forwarded-Proto": "https" },
+  },
+};
+
 export default defineConfig({
+  server: { host: "127.0.0.1", proxy: localApiProxy },
+  preview: { host: "127.0.0.1", proxy: localApiProxy },
   plugins: [
     react(),
     VitePWA({
