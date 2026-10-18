@@ -391,3 +391,54 @@ class PaymentAPITests(APITestCase):
         self.assertEqual(record.status, "broadcast")
         self.assertEqual(record.txids, ["a" * 64])
         send.assert_called_once()
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, DASHBOARD_ORIGIN="https://wallet.example.test",
+                   EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PrivateMerchantAuthTests(APITestCase):
+    def test_key_only_signup_login_and_no_email(self):
+        created = self.client.post("/api/v1/auth/register/", {}, format="json")
+        self.assertEqual(created.status_code, 201)
+        key = created.data["login_key"]
+        self.assertTrue(len(key) >= 32)
+        self.assertEqual(get_user_model().objects.filter(email="").count(), 1)
+        self.assertFalse(Credential.objects.filter(digest=key).exists())
+        self.assertEqual(self.client.post("/api/v1/auth/login/", {"login_key": "bad"}, format="json").status_code, 400)
+        login = self.client.post("/api/v1/auth/login/", {"login_key": key}, format="json")
+        self.assertEqual(login.status_code, 200)
+        self.assertNotIn("login_key", login.data)
+
+    def test_existing_merchant_keeps_api_keys_and_payments(self):
+        user = get_user_model().objects.create_user(username="old@example.com", email="old@example.com", password="Strong-Old-Password-2026")
+        api, raw = Credential.issue(user, "Existing API", "api")
+        payment = PaymentRequest.objects.create(owner=user, idempotency_key="legacy", reference="legacy", amount_zatoshis=100, ttl_seconds=1800)
+        old = self.client.post("/api/v1/auth/legacy-login/", {"email": "old@example.com", "password": "Strong-Old-Password-2026"}, format="json")
+        self.assertEqual(old.status_code, 200)
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + old.data["token"])
+        migrated = self.client.post("/api/v1/auth/activate-key/", {}, format="json")
+        self.assertEqual(migrated.status_code, 201)
+        self.assertEqual(Credential.objects.get(pk=api.pk).revoked_at, None)
+        self.assertEqual(PaymentRequest.objects.get(pk=payment.pk).owner_id, user.pk)
+        self.assertEqual(self.client.post("/api/v1/auth/legacy-login/", {"email": "old@example.com", "password": "Strong-Old-Password-2026"}, format="json").status_code, 401)
+        self.assertEqual(self.client.post("/api/v1/auth/login/", {"login_key": migrated.data["login_key"]}, format="json").status_code, 200)
+
+    def test_verified_recovery_rotates_login_key(self):
+        from django.core import mail
+        from urllib.parse import urlparse, parse_qs
+        created = self.client.post("/api/v1/auth/register/", {}, format="json")
+        key = created.data["login_key"]
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + created.data["token"])
+        requested = self.client.post("/api/v1/auth/recovery-email/", {"email": "recover@example.com"}, format="json")
+        self.assertEqual(requested.status_code, 200)
+        link = mail.outbox[-1].body.split("https://wallet.example.test")[-1].split()[0]
+        token = parse_qs(urlparse(link).query)["token"][0]
+        self.client.credentials()
+        self.assertEqual(self.client.post("/api/v1/auth/verify-email/", {"token": token}, format="json").status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/auth/request-recovery/", {"email": "recover@example.com"}, format="json").status_code, 200)
+        link = mail.outbox[-1].body.split("https://wallet.example.test")[-1].split()[0]
+        query = parse_qs(urlparse(link).query)
+        completed = self.client.post("/api/v1/auth/complete-recovery/", {"uid": query["uid"][0], "token": query["token"][0]}, format="json")
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/auth/login/", {"login_key": key}, format="json").status_code, 401)
+        self.assertEqual(self.client.post("/api/v1/auth/login/", {"login_key": completed.data["login_key"]}, format="json").status_code, 200)
+        self.assertEqual(self.client.post("/api/v1/auth/complete-recovery/", {"uid": query["uid"][0], "token": query["token"][0]}, format="json").status_code, 400)
