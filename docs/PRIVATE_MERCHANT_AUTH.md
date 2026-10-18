@@ -29,3 +29,25 @@ Set `ZPAY_DASHBOARD_ORIGIN=https://wallet.zoerd.com` (adjust to the real fronten
 5. Apply migrations and deploy backend and dashboard together. Do not restart the Rust wallet service as part of this auth-only rollout. Do not use real ZEC to test authentication.
 
 **Security note:** Key-only authentication reduces personal data collection but does not itself make blockchain activity anonymous or provide end-to-end encrypted merchant data.
+
+
+## Resend SMTP setup (production)
+ZOERDWALLET uses Django's SMTP backend; no Resend SDK or merchant-domain allowlist is required. In Resend, verify the sending domain (SPF and DKIM) and create a **sending-only** API key scoped to that domain. Store the key exclusively in the backend runtime secret environment, not Git, dashboard Vite variables, browser storage, or terminal output.
+
+Recommended Resend configuration (SMTPS):
+```dotenv
+ZPAY_DASHBOARD_ORIGIN=https://YOUR-ACTUAL-DASHBOARD-HOST
+ZPAY_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+ZPAY_SMTP_HOST=smtp.resend.com
+ZPAY_SMTP_PORT=465
+ZPAY_SMTP_USER=resend
+ZPAY_SMTP_PASSWORD=YOUR_RESEND_SENDING_ONLY_API_KEY
+ZPAY_SMTP_TLS=0
+ZPAY_SMTP_SSL=1
+ZPAY_FROM_EMAIL=ZOERDWALLET <no-reply@YOUR-VERIFIED-DOMAIN>
+```
+Alternative STARTTLS configuration: port 587, `ZPAY_SMTP_TLS=1`, `ZPAY_SMTP_SSL=0`. Do not enable both TLS and SSL. Set the actual public HTTPS dashboard origin or verification/recovery links will be incorrect. The email sender domain must be verified in Resend.
+
+After configuring the runtime environment, reload/redeploy the backend using the actual service manager so its workers inherit the new environment. A Gunicorn HUP alone does **not** import changed environment variables from your shell. Confirm production `DASHBOARD_ORIGIN` and email settings without printing credentials, then send a verification email from `/recovery-settings` using a dedicated test account. Confirm the verification link opens the dashboard and completes successfully; test recovery in a separate signed-out browser session, save the replacement secret, and verify the old secret no longer works. Never put login secrets, reset URLs or Resend API keys into logs, tickets or screenshots.
+
+Do not configure recovery using an HTTP origin in production. Use rate limits and monitoring for email abuse, and do not treat successful SMTP acceptance as proof of delivery. For multi-worker deployment, use a shared cache for throttling.
