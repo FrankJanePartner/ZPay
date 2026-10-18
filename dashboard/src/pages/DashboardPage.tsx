@@ -54,8 +54,12 @@ function RecentOutput({ output }: { output: WalletActivity }) {
       </div>
       <div className="recent-output-meta">
         <span className={`output-status ${output.status}`}> {output.status.replace(/_/g, " ")}</span>
-        <span title={output.txid}>Transaction {shortValue(output.txid)}</span>
-        <CopyButton label="transaction ID" value={output.txid} />
+        {output.txid ? (
+          <>
+            <span title={output.txid}>Transaction {shortValue(output.txid)}</span>
+            <CopyButton label="transaction ID" value={output.txid} />
+          </>
+        ) : <span>Transaction ID not available</span>}
         {output.direction === "sent" && output.recipient_address ? (
           <>
             <span title={output.recipient_address ?? undefined}>Recipient {shortValue(output.recipient_address ?? "")}</span>
