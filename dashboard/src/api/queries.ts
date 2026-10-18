@@ -98,6 +98,9 @@ export async function getTransactions(
   if (!response) {
     throw new ApiError({ status: 204, detail: "Invalid API response. Please try again." });
   }
+  if (!Array.isArray(response.results)) {
+    throw new ApiError({ status: 502, detail: "The transaction service returned an unexpected response. The backend may need updating." });
+  }
   return response;
 }
 
