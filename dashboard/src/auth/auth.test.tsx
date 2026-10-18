@@ -395,16 +395,14 @@ describe("authentication routes", () => {
     let olderAttempt!: Promise<boolean>;
     act(() => {
       olderAttempt = capturedAuth!.login({
-        email: "old@example.com",
-        password: "strong-password-482",
+        login_key: "zpay_old_test_secret",
       });
     });
     await olderRequest;
 
     await act(async () => {
       await capturedAuth!.register({
-        email: "new@example.com",
-        password: "strong-password-483",
+        login_key: "zpay_new_test_secret",
       });
     });
     expect(session.getToken()).toBe("zpay_newer");
