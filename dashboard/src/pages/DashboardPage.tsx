@@ -60,10 +60,10 @@ function RecentOutput({ output }: { output: WalletActivity }) {
             <CopyButton label="transaction ID" value={output.txid} />
           </>
         ) : <span>Transaction ID not available</span>}
-        {output.recipient_address ? (
+        {(output.direction === "sent" ? output.recipient_address : output.address) ? (
           <>
-            <span title={output.recipient_address ?? undefined}>Recipient {shortValue(output.recipient_address ?? "")}</span>
-            <CopyButton label="address" value={output.recipient_address ?? ""} />
+            <span title={(output.direction === "sent" ? output.recipient_address : output.address) ?? undefined}>{output.direction === "sent" ? "Recipient" : "Address"} {shortValue((output.direction === "sent" ? output.recipient_address : output.address) ?? "")}</span>
+            <CopyButton label="address" value={(output.direction === "sent" ? output.recipient_address : output.address) ?? ""} />
           </>
         ) : null}
         {output.payment_request ? (
