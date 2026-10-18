@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExam
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import serializers
 from . import views
-from .serializers import CredentialsInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput, SendInput, SendOutput
+from .serializers import CredentialsInput, LoginSecretInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput, SendInput, SendOutput
 
 class BearerScheme(OpenApiAuthenticationExtension):
     target_class = "payments.auth.BearerAuthentication"
@@ -37,8 +37,8 @@ BAD_INPUT = OpenApiResponse(response={"type": "object", "additionalProperties": 
 CREDENTIAL_EXAMPLES = [example("Credentials", {"email": "developer@example.com", "password": "Example-only-Password!42"}, request_only=True), example("Dashboard session", {"token": "zpay_EXAMPLE_DASHBOARD_TOKEN", "expires_in": 43200}, response_only=True)]
 
 views.Health = extend_schema_view(get=extend_schema(tags=["Health"], summary="Check API availability", description="Checks Django availability only; not node sync, wallet readiness or settlement.", responses={200: HEALTH}, examples=[example("Healthy API", {"service": "ZOERDWALLET API", "status": "ok", "settlement_enabled": False})]))(views.Health)
-views.Register = extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Register a developer account", description="Email and password required. Password must pass Django validation, including a 12-character minimum. Returns a dashboard bearer token valid for 43200 seconds.", request=CredentialsInput, responses={201: SESSION, 400: BAD_INPUT, 429: AUTH_ERRORS[429]}, examples=CREDENTIAL_EXAMPLES))(views.Register)
-views.Login = extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Log in", description="Returns a new dashboard token. Use Authorize to supply it for key management.", request=CredentialsInput, responses={200: SESSION, 400: BAD_INPUT, **AUTH_ERRORS}, examples=CREDENTIAL_EXAMPLES))(views.Login)
+views.Register = extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Register private merchant", description="No email or password required. Returns one-time login_key and dashboard session. Save the login_key securely.", request=None, responses={201: SESSION, 429: AUTH_ERRORS[429]}))(views.Register)
+views.Login = extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Log in", description="Returns a new dashboard token. Use Authorize to supply it for key management.", request=LoginSecretInput, responses={200: SESSION, 400: BAD_INPUT, **AUTH_ERRORS}, examples=CREDENTIAL_EXAMPLES))(views.Login)
 views.Logout = extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Revoke the current dashboard session", description="Dashboard token only. No request body. Success is HTTP 204 with an empty response body; clear the token from the frontend.", request=None, responses={204: OpenApiResponse(description="Session revoked. Empty body."), 403: error("You do not have permission to perform this action."), **AUTH_ERRORS}))(views.Logout)
 views.Keys = extend_schema_view(
     get=extend_schema(tags=["API keys"], summary="List your API keys", description="Dashboard token only. Returns an unpaginated array, including revoked keys. Secret keys are never returned here.", responses={200: KeyOutput(many=True), 403: error("You do not have permission to perform this action."), **AUTH_ERRORS}, examples=[example("Key metadata", KEY, response_only=True)]),
