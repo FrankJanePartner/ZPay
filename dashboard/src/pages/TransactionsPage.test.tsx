@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DepositOutput } from "../api/types";
+import type { WalletActivity } from "../api/types";
 import { AuthProvider } from "../auth/AuthProvider";
 import { session } from "../auth/session";
 import { appRoutes } from "../router";
@@ -14,8 +14,13 @@ import { server } from "../test/server";
 const txid = "cd".repeat(32);
 const paymentId = "0787e217-5be4-4258-a9d1-ca991c2558c4";
 
-const confirmed: DepositOutput = {
+const confirmed: WalletActivity = {
   id: "db32a049-4b34-4c48-ae39-072c5f9395c0",
+  direction: "received",
+  timestamp: "2026-09-15T16:00:00Z",
+  timestamp_source: "block",
+  fee_zatoshis: null,
+  fee_verified: false,
   payment_request: paymentId,
   txid,
   pool: 3,
@@ -31,7 +36,7 @@ const confirmed: DepositOutput = {
   first_seen_at: "2026-09-15T16:01:00Z",
 };
 
-const reversed: DepositOutput = {
+const reversed: WalletActivity = {
   ...confirmed,
   memo: "",
   id: "bf70160c-2f98-4c7e-b866-c4947f4d9d20",
@@ -45,7 +50,7 @@ const reversed: DepositOutput = {
   late: null,
 };
 
-function page(results: DepositOutput[], next: string | null = null, previous: string | null = null) {
+function page(results: WalletActivity[], next: string | null = null, previous: string | null = null) {
   return { count: results.length, next, previous, results };
 }
 
@@ -62,7 +67,7 @@ function renderTransactions() {
   );
 }
 
-function respondWithOutputs(outputs: DepositOutput[] = [confirmed, reversed]) {
+function respondWithOutputs(outputs: WalletActivity[] = [confirmed, reversed]) {
   server.use(
     http.get(`${API_ORIGIN}/api/v1/transactions/`, () => HttpResponse.json(page(outputs))),
   );
@@ -93,7 +98,7 @@ describe("transactions page", () => {
     expect(screen.getByText("12 confirmations")).toBeVisible();
     expect(screen.getByText("Pool 3")).toBeVisible();
     expect(screen.getByText("Output 7")).toBeVisible();
-    expect(screen.getByText("1.23456789 ZEC")).toBeVisible();
+    expect(screen.getByText(/1.23456789 ZEC/)).toBeVisible();
     expect(screen.getByText("Payment for order #123")).toBeVisible();
     expect(screen.getByText(/reversed outputs remain visible for audit/i)).toBeVisible();
   });
