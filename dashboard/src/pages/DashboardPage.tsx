@@ -53,14 +53,14 @@ function RecentOutput({ output }: { output: WalletActivity }) {
         <span>{formattedTimestamp(output.timestamp)}</span>
       </div>
       <div className="recent-output-meta">
-        <span className={`output-status ${output.status}`}> {output.status.replace(/_/g, " ")}</span>
+        <span className={`output-status ${output.status}`}> {output.status.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase())}</span>
         {output.txid ? (
           <>
             <span title={output.txid}>Transaction {shortValue(output.txid)}</span>
             <CopyButton label="transaction ID" value={output.txid} />
           </>
         ) : <span>Transaction ID not available</span>}
-        {output.direction === "sent" && output.recipient_address ? (
+        {output.recipient_address ? (
           <>
             <span title={output.recipient_address ?? undefined}>Recipient {shortValue(output.recipient_address ?? "")}</span>
             <CopyButton label="address" value={output.recipient_address ?? ""} />
@@ -72,7 +72,8 @@ function RecentOutput({ output }: { output: WalletActivity }) {
             <CopyButton label="payment ID" value={output.payment_request} />
           </>
         ) : null}
-        {output.memo ? <span title={output.memo}>Memo: {output.memo}</span> : null}\n        <span>Network fee: {output.fee_verified && output.fee_zatoshis !== null ? amountLabel(output.fee_zatoshis) : "Not verified"}</span>
+        {output.memo ? <span title={output.memo}>Memo: {output.memo}</span> : null}
+        <span>Network fee: {output.fee_verified && output.fee_zatoshis !== null ? amountLabel(output.fee_zatoshis) : "Not verified"}</span>
       </div>
     </li>
   );
