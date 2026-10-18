@@ -10,7 +10,7 @@ class Credential(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=80)
-    kind = models.CharField(max_length=12, choices=[("session", "Session"), ("api", "API")])
+    kind = models.CharField(max_length=12, choices=[("session", "Session"), ("api", "API"), ("login", "Login secret"), ("verified", "Verified recovery email")])
     digest = models.CharField(max_length=64, unique=True)
     prefix = models.CharField(max_length=16)
     created_at = models.DateTimeField(auto_now_add=True)
