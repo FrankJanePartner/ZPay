@@ -339,6 +339,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let input = test_send();
         let (intent, completed) = send_paths(dir.path(), input.request_id);
+        fs::create_dir_all(intent.parent().unwrap()).unwrap();
         begin_send(&intent, &input).unwrap();
         assert!(check_send_journal(&intent, &completed, &input)
             .unwrap_err().contains("reconciliation"));
@@ -349,6 +350,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let input = test_send();
         let (intent, completed) = send_paths(dir.path(), input.request_id);
+        fs::create_dir_all(intent.parent().unwrap()).unwrap();
         begin_send(&intent, &input).unwrap();
         finish_send(&completed, &input, vec!["a".repeat(64)]).unwrap();
         let replay = check_send_journal(&intent, &completed, &input)
@@ -364,6 +366,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let input = test_send();
         let (intent, completed) = send_paths(dir.path(), input.request_id);
+        fs::create_dir_all(intent.parent().unwrap()).unwrap();
         let old = SendResult {
             merchant_id: input.merchant_id.clone(),
             request_id: input.request_id,
