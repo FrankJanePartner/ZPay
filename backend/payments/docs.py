@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExam
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import serializers
 from . import views
-from .serializers import CredentialsInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput
+from .serializers import CredentialsInput, KeyInput, KeyOutput, PaymentInput, PaymentOutput, SendInput, SendOutput
 
 class BearerScheme(OpenApiAuthenticationExtension):
     target_class = "payments.auth.BearerAuthentication"
@@ -51,3 +51,10 @@ views.Payments = extend_schema_view(
     post=extend_schema(tags=["Payment requests"], summary="Create or retry a receiving-address request", description="Bearer API key or dashboard token. Amount is an integer string in zatoshis; maximum 2100000000000000. ttl_seconds is 60–1800 (default 1800), measured from address allocation. Use a new Idempotency-Key per order, and the same key and exact payload for retries. Returns 201 for a new request or 200 for a replay/recovered request. A changed payload with the same key returns 409. On 503, retry with the SAME key and payload. Expiration never destroys an address or funds.", request=PaymentInput, parameters=[OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True, description="1–128 letters, digits, dots, underscores, colons or hyphens.", examples=[example("Order identifier", "private-bill-order-1042")])], responses={201: PaymentOutput, 200: PaymentOutput, 400: BAD_INPUT, 409: error("Idempotency-Key already used with a different payload."), 503: error("Wallet service unavailable. Retry with the same Idempotency-Key."), **AUTH_ERRORS}, examples=[example("Request an address", {"reference": "private-bill-order-1042", "amount_zatoshis": "100000", "ttl_seconds": 1800}, request_only=True), example("Allocated address", PAYMENT, response_only=True)])
 )(views.Payments)
 views.PaymentDetail = extend_schema_view(get=extend_schema(tags=["Payment requests"], summary="Read a payment request", description="Bearer API key or dashboard token. Use the request UUID returned on creation. A request belonging to another account returns 404. status reflects the payment window. received_zatoshis and funding_status reflect mined deposits from the last complete scan, including late payments. Check /api/v1/balance/ for scan freshness.", responses={200: PaymentOutput, 404: error("Not found."), **AUTH_ERRORS}, examples=PAYMENT_EXAMPLES))(views.PaymentDetail)
+
+# Document both successful send responses, including idempotent replay.
+SEND = {"id": PID, "recipient_address": "u1EXAMPLE_RECIPIENT", "amount_zatoshis": "100000", "memo": "Example payment", "status": "broadcast", "txids": ["example-transaction-id"], "error": ""}
+views.Sends = extend_schema_view(
+    get=extend_schema(tags=["Sends"], summary="List outgoing transfers", description="Paginated outgoing transfers belonging to the authenticated account.", responses={200: SendOutput(many=True), **AUTH_ERRORS}, examples=[example("Outgoing transfer", SEND, response_only=True)]),
+    post=extend_schema(tags=["Sends"], summary="Send or retry a Zcash transfer", description="Use the same Idempotency-Key and payload when retrying.", request=SendInput, parameters=[OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)], responses={201: SendOutput, 200: SendOutput, 400: BAD_INPUT, 409: error("Idempotency-Key already used with a different payload."), 503: error("Wallet service unavailable. Retry with the same Idempotency-Key."), **AUTH_ERRORS}, examples=[example("Outgoing transfer", SEND, response_only=True), example("Transfer request", {"recipient_address": "u1EXAMPLE_RECIPIENT", "amount_zatoshis": "100000", "memo": "Example payment"}, request_only=True)])
+)(views.Sends)
