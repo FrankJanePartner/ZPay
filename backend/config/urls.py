@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/v1/auth/login/", views.Login.as_view()),
     path("api/v1/auth/logout/", views.Logout.as_view()),
     path("api/v1/auth/legacy-login/", views.LegacyLogin.as_view()),
+    path("api/v1/auth/migrate/", views.LegacyMigrate.as_view()),
     path("api/v1/auth/activate-key/", views.ActivateLoginSecret.as_view()),
     path("api/v1/auth/recovery-email/", views.SetRecoveryEmail.as_view()),
     path("api/v1/auth/verify-email/", views.VerifyRecoveryEmail.as_view()),
