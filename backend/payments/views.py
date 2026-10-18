@@ -6,10 +6,11 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiExample
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -31,6 +32,28 @@ from .serializers import (
     PaymentOutput,
     SendInput,
     SendOutput,
+)
+
+
+SEND_IN_PROGRESS = (
+    "Transaction outcome could not be confirmed. "
+    "Send processing began; reconciliation is required."
+)
+
+SEND_OUTCOME_UNCERTAIN = (
+    "Transaction outcome could not be confirmed. "
+    "Check transaction history and contact support before another send."
+)
+
+SEND_INSUFFICIENT_FUNDS = (
+    "Insufficient ZEC balance to cover the transfer "
+    "amount and network fee."
+)
+
+SEND_UNCERTAIN_RESPONSE = (
+    "This transaction's outcome is uncertain or processing is "
+    "already underway. Check transaction history and contact "
+    "support before attempting another send."
 )
 
 
@@ -189,8 +212,7 @@ class Payments(generics.ListCreateAPIView):
             }, status=409)
 
         if payment.address is None:
-            # Persist request UUID before network I/O so retries
-            # use the same wallet allocation.
+            # Persist the request UUID before wallet allocation.
             address = allocate_address(payment)
 
             try:
@@ -295,53 +317,78 @@ class Sends(generics.ListCreateAPIView):
                 status=200,
             )
 
-        # A previously uncertain send must not be broadcast again
-        # automatically. Its result needs reconciliation first.
-        if send_request.error.startswith(
-            "Transaction outcome could not be confirmed."
-        ):
+        # Atomically claim the send before network I/O.
+        # Only a never-started pending request or a confirmed
+        # insufficient-funds failure may be claimed.
+        #
+        # The error marker is committed before contacting Rust.
+        # A crash or timeout therefore leaves the request blocked
+        # for reconciliation rather than making it retryable.
+        claimed = SendRequest.objects.filter(
+            pk=send_request.pk,
+            owner=request.user,
+        ).filter(
+            Q(status="pending", error="")
+            | Q(
+                status="failed",
+                error=SEND_INSUFFICIENT_FUNDS,
+            )
+        ).update(
+            status="pending",
+            error=SEND_IN_PROGRESS,
+        )
+
+        if claimed != 1:
+            send_request.refresh_from_db()
+
+            if send_request.status == "broadcast":
+                return Response(
+                    SendOutput(send_request).data,
+                    status=200,
+                )
+
             return Response(
-                {
-                    "detail": (
-                        "This transaction's outcome is uncertain. "
-                        "Check transaction history and contact support "
-                        "before attempting another send."
-                    )
-                },
+                {"detail": SEND_UNCERTAIN_RESPONSE},
                 status=409,
             )
 
+        # Only the request that claimed the row reaches the wallet.
+        # Do not wrap the wallet call in a database transaction.
         try:
             txids = send_zec(send_request)
 
         except InsufficientFunds:
-            # The wallet rejected the proposal before broadcasting.
+            # The wallet explicitly rejected the proposal
+            # before broadcasting. This is a confirmed failure.
             SendRequest.objects.filter(
-                pk=send_request.pk
+                pk=send_request.pk,
+                status="pending",
+                error=SEND_IN_PROGRESS,
             ).update(
                 status="failed",
-                error=(
-                    "Insufficient ZEC balance to cover the transfer "
-                    "amount and network fee."
-                ),
+                error=SEND_INSUFFICIENT_FUNDS,
             )
             raise
 
         except WalletUnavailable:
-            # The outcome might be uncertain. Do not mark it
-            # as a confirmed failed broadcast.
+            # The wallet outcome is not confirmed.
+            # Keep the record blocked until reconciliation.
             SendRequest.objects.filter(
-                pk=send_request.pk
+                pk=send_request.pk,
+                status="pending",
+                error=SEND_IN_PROGRESS,
             ).update(
-                error=(
-                    "Transaction outcome could not be confirmed. "
-                    "Check transaction history before retrying."
-                ),
+                error=SEND_OUTCOME_UNCERTAIN,
             )
             raise
 
+        # A successful wallet response includes transaction IDs.
+        # Preserve the claimed marker if the database write fails:
+        # it must not become eligible for another send.
         SendRequest.objects.filter(
-            pk=send_request.pk
+            pk=send_request.pk,
+            status="pending",
+            error=SEND_IN_PROGRESS,
         ).update(
             status="broadcast",
             txids=txids,
