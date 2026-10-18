@@ -1,7 +1,7 @@
 from django.db import migrations, models
 
 class Migration(migrations.Migration):
-    dependencies = [("payments", "0003_sendrequest")]
+    dependencies = [("payments", "0005_deposit_memo")]
 
     operations = [
         migrations.AlterField(
