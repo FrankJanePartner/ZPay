@@ -1,6 +1,6 @@
 use axum::{extract::State, http::{HeaderMap, StatusCode}, routing::{get, post}, Json, Router};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{fs, path::{Path, PathBuf}, sync::Arc, time::Duration};
 use subtle::ConstantTimeEq;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -23,7 +23,7 @@ pub struct AllocationInput {
     request_id: Uuid,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SendInput {
     merchant_id: String,
     request_id: Uuid,
@@ -33,6 +33,12 @@ pub struct SendInput {
 }
 
 #[derive(Serialize, Deserialize)]
+struct CompletedSend {
+    input: SendInput,
+    txids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendResult {
     merchant_id: String,
     request_id: Uuid,
@@ -129,6 +135,69 @@ async fn send_payment(
     Ok(Json(result))
 }
 
+
+fn send_paths(merchant: &Path, request_id: Uuid) -> (PathBuf, PathBuf) {
+    let directory = merchant.join("requests");
+    (
+        directory.join(format!("send-{request_id}.intent.json")),
+        directory.join(format!("send-{request_id}.json")),
+    )
+}
+
+fn check_send_journal(
+    intent: &Path,
+    completed: &Path,
+    input: &SendInput,
+) -> Result<Option<SendResult>, String> {
+    if completed.exists() {
+        // Older completed journals did not record the destination or amount.
+        // Never replay an unverifiable payment under a reused request ID.
+        let previous: CompletedSend = serde_json::from_slice(
+            &fs::read(completed).map_err(|e| e.to_string())?,
+        ).map_err(|_| "Legacy or damaged send journal requires reconciliation".to_string())?;
+        if previous.input != *input {
+            return Err("Send journal payload mismatch".into());
+        }
+        return Ok(Some(SendResult {
+            merchant_id: input.merchant_id.clone(),
+            request_id: input.request_id,
+            txids: previous.txids,
+        }));
+    }
+    if intent.exists() {
+        let previous: SendInput = serde_json::from_slice(
+            &fs::read(intent).map_err(|e| e.to_string())?,
+        ).map_err(|_| "Damaged send intent requires reconciliation".to_string())?;
+        if previous != *input {
+            return Err("Send intent payload mismatch".into());
+        }
+        return Err("Previous send attempt requires reconciliation; automatic retry blocked".into());
+    }
+    Ok(None)
+}
+
+fn begin_send(intent: &Path, input: &SendInput) -> Result<(), String> {
+    vault::persist_new(
+        intent,
+        &serde_json::to_vec(input).map_err(|e| e.to_string())?,
+    )
+}
+
+fn finish_send(completed: &Path, input: &SendInput, txids: Vec<String>)
+    -> Result<SendResult, String>
+{
+    let record = CompletedSend { input: input.clone(), txids: txids.clone() };
+    vault::persist_new(
+        completed,
+        &serde_json::to_vec(&record).map_err(|e| e.to_string())?,
+    )?;
+    Ok(SendResult {
+        merchant_id: input.merchant_id.clone(),
+        request_id: input.request_id,
+        txids,
+    })
+}
+
 async fn send_inner(app: &App, input: SendInput) -> Result<SendResult, String> {
     let merchant = app.directory.join("merchants").join(&input.merchant_id);
     let wallet_path = merchant.join("wallet.sqlite");
@@ -137,34 +206,27 @@ async fn send_inner(app: &App, input: SendInput) -> Result<SendResult, String> {
         return Err("Merchant wallet not allocated".into());
     }
 
-    let journal = merchant
-        .join("requests")
-        .join(format!("send-{}.json", input.request_id));
-
-    if journal.exists() {
-        let previous: SendResult =
-            serde_json::from_slice(&fs::read(&journal).map_err(|e| e.to_string())?)
-                .map_err(|e| e.to_string())?;
-
-        if previous.merchant_id != input.merchant_id || previous.request_id != input.request_id {
-            return Err("Send journal identity mismatch".into());
-        }
-
+    let (intent, completed) = send_paths(&merchant, input.request_id);
+    if let Some(previous) = check_send_journal(&intent, &completed, &input)? {
         return Ok(previous);
     }
 
     let encrypted =
         fs::read(merchant.join("recovery.enc")).map_err(|e| e.to_string())?;
-
     let plaintext = vault::open(&app.key, &input.merchant_id, &encrypted)?;
 
     #[derive(Deserialize)]
-    struct RecoveryRecord {
-        recovery_phrase: String,
-    }
+    struct RecoveryRecord { recovery_phrase: String }
 
     let mut created: RecoveryRecord =
         serde_json::from_slice(&plaintext).map_err(|e| e.to_string())?;
+
+    // Durable intent is committed before building, signing or broadcasting.
+    // On interruption, the request remains blocked until reconciled.
+    if let Err(e) = begin_send(&intent, &input) {
+        created.recovery_phrase.zeroize();
+        return Err(e);
+    }
 
     let result = send::send_zatoshis(
         &wallet_path,
@@ -173,25 +235,24 @@ async fn send_inner(app: &App, input: SendInput) -> Result<SendResult, String> {
         &input.recipient_address,
         input.amount_zatoshis,
         input.memo.as_deref(),
-    )
-    .await;
-
+    ).await;
     created.recovery_phrase.zeroize();
 
-    let txids = result?;
-
-    let send_result = SendResult {
-        merchant_id: input.merchant_id,
-        request_id: input.request_id,
-        txids,
+    let txids = match result {
+        Ok(txids) => txids,
+        Err(e) => {
+            if e.starts_with("Failed to create transaction proposal: InsufficientFunds {") {
+                // This failure is before signing and broadcasting.
+                // If removal or directory fsync fails, report an uncertain
+                // outcome and keep the caller from assuming a safe retry.
+                fs::remove_file(&intent).map_err(|x| x.to_string())?;
+                fs::File::open(intent.parent().ok_or("Invalid intent path")?)
+                    .and_then(|f| f.sync_all()).map_err(|x| x.to_string())?;
+            }
+            return Err(e);
+        }
     };
-
-    vault::persist_new(
-        &journal,
-        &serde_json::to_vec(&send_result).map_err(|e| e.to_string())?,
-    )?;
-
-    Ok(send_result)
+    finish_send(&completed, &input, txids)
 }
 
 async fn allocate(State(app): State<App>, headers: HeaderMap, Json(input): Json<AllocationInput>)
@@ -263,6 +324,55 @@ fn allocate_once(journal: &std::path::Path, input: AllocationInput, generate: im
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn test_send() -> SendInput {
+        SendInput {
+            merchant_id: "42".into(),
+            request_id: Uuid::new_v4(),
+            recipient_address: "test-recipient".into(),
+            amount_zatoshis: 27900,
+            memo: Some("test memo".into()),
+        }
+    }
+
+    #[test]
+    fn interrupted_send_blocks_replay() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = test_send();
+        let (intent, completed) = send_paths(dir.path(), input.request_id);
+        begin_send(&intent, &input).unwrap();
+        assert!(check_send_journal(&intent, &completed, &input)
+            .unwrap_err().contains("reconciliation"));
+    }
+
+    #[test]
+    fn completed_send_replays_and_rejects_changed_payload() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = test_send();
+        let (intent, completed) = send_paths(dir.path(), input.request_id);
+        begin_send(&intent, &input).unwrap();
+        finish_send(&completed, &input, vec!["a".repeat(64)]).unwrap();
+        let replay = check_send_journal(&intent, &completed, &input)
+            .unwrap().unwrap();
+        assert_eq!(replay.txids, vec!["a".repeat(64)]);
+        let mut changed = input.clone();
+        changed.memo = Some("different".into());
+        assert!(check_send_journal(&intent, &completed, &changed).is_err());
+    }
+
+    #[test]
+    fn legacy_send_record_requires_reconciliation() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = test_send();
+        let (intent, completed) = send_paths(dir.path(), input.request_id);
+        let old = SendResult {
+            merchant_id: input.merchant_id.clone(),
+            request_id: input.request_id,
+            txids: vec!["a".repeat(64)],
+        };
+        vault::persist_new(&completed, &serde_json::to_vec(&old).unwrap()).unwrap();
+        assert!(check_send_journal(&intent, &completed, &input).is_err());
+    }
+
     #[test]
     fn journal_replay_survives_restart_and_rejects_wrong_merchant() {
         let dir = tempfile::tempdir().unwrap();
