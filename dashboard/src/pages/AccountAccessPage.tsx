@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { activateLoginKey, completeRecovery, legacyLogin, requestRecovery, setRecoveryEmail, verifyRecoveryEmail } from "../api/queries";
+import { completeRecovery, migrateLegacy, requestRecovery, setRecoveryEmail, verifyRecoveryEmail } from "../api/queries";
 import { useAuth } from "../auth/AuthProvider";
 
 export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "verify" | "settings"}) {
@@ -12,6 +12,7 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [newToken, setNewToken] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,10 +23,10 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
     setMessage("");
     try {
       if (mode === "migrate") {
-        const session = await legacyLogin(String(data.get("email")), String(data.get("password")));
-        adoptSession(session.token);
-        const issued = await activateLoginKey();
-        setSecret(issued.login_key);
+        const result = await migrateLegacy(String(data.get("email")), String(data.get("password")));
+        setSecret(result.login_key ?? null);
+        // Session is adopted only after the merchant confirms the secret is saved.
+        setNewToken(result.token);
       } else if (mode === "settings") {
         await setRecoveryEmail(String(data.get("email")));
         setMessage("Verification link sent. Check your inbox and verify your address.");
@@ -59,7 +60,7 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
       <textarea readOnly rows={3} value={secret} aria-label="New merchant login secret"/>
       <button type="button" onClick={() => navigator.clipboard.writeText(secret)}>Copy secret</button>
       <label><input type="checkbox" checked={saved} onChange={event => setSaved(event.target.checked)}/> I have securely saved my secret</label>
-      {saved ? <p><Link to="/dashboard">Continue to dashboard</Link></p> : null}
+      {saved && newToken ? <button type="button" onClick={() => adoptSession(newToken)}>Continue to dashboard</button> : null}
     </section> : <form onSubmit={submit}>
       {mode === "migrate" ? <p>Sign in once with your existing email and password. Your merchant ID, wallet history and API keys remain unchanged. This disables password login for that account.</p> : null}
       {mode === "settings" ? <p>Recovery is optional. We will send a verification link. Until verified, this email cannot recover your account.</p> : null}
