@@ -109,10 +109,21 @@ async fn send_payment(
 
     let result = send_inner(&app, input).await.map_err(|e| {
         eprintln!("Wallet send failed: {e}");
-        error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Wallet send unavailable; retry the same request_id",
-        )
+
+        if e.starts_with("Failed to create transaction proposal: InsufficientFunds {") {
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({
+                    "code": "insufficient_funds",
+                    "detail": "Insufficient ZEC balance to cover the transfer amount and network fee."
+                })),
+            )
+        } else {
+            error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Wallet send outcome could not be confirmed. Check the transaction status before retrying.",
+            )
+        }
     })?;
 
     Ok(Json(result))
