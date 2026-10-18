@@ -56,6 +56,12 @@ export async function migrateLegacy(email: string, password: string): Promise<Se
   }));
 }
 
+export async function confirmMigration(login_key: string): Promise<SessionResponse> {
+  return requireSession(await apiRequest<SessionResponse>("/api/v1/auth/confirm-migrate/", {
+    method:"POST", body:JSON.stringify({login_key}),
+  }));
+}
+
 export async function activateLoginKey(): Promise<{login_key: string}> {
   const response = await apiRequest<{login_key: string}>("/api/v1/auth/activate-key/", { method: "POST" });
   if (!response) throw new Error("Unable to activate login key");
