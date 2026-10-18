@@ -90,6 +90,7 @@ export interface WalletActivity {
   fee_verified: boolean;
   pool?: number;
   output_index?: number;
+  mined_height?: number | null;
   late?: boolean | null;
   address?: string | null;
   confirmations?: number | null;
