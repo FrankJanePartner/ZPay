@@ -68,8 +68,8 @@ export async function activateLoginKey(): Promise<{login_key: string}> {
   return response;
 }
 
-export async function setRecoveryEmail(email: string): Promise<void> {
-  await apiRequest("/api/v1/auth/recovery-email/", {method:"POST",body:JSON.stringify({email})});
+export async function setRecoveryEmail(email: string, login_key: string): Promise<void> {
+  await apiRequest("/api/v1/auth/recovery-email/", {method:"POST",body:JSON.stringify({email,login_key})});
 }
 export async function verifyRecoveryEmail(token: string): Promise<void> {
   await apiRequest("/api/v1/auth/verify-email/", {method:"POST",body:JSON.stringify({token})});
