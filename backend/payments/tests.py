@@ -190,33 +190,13 @@ class PaymentAPITests(APITestCase):
 
     def test_register_login_logout(self):
         self.client.credentials()
-        payload = {
-            "email": "new@example.com",
-            "password": "Another-Strong-Password-482",
-        }
-        self.assertEqual(
-            self.client.post(
-                "/api/v1/auth/register/", payload
-            ).status_code,
-            201,
-        )
-        login = self.client.post(
-            "/api/v1/auth/login/", payload
-        )
+        created = self.client.post("/api/v1/auth/register/", {}, format="json")
+        self.assertEqual(created.status_code, 201)
+        login = self.client.post("/api/v1/auth/login/", {"login_key": created.data["login_key"]}, format="json")
         self.assertEqual(login.status_code, 200)
-        self.client.credentials(
-            HTTP_AUTHORIZATION="Bearer " + login.data["token"]
-        )
-        self.assertEqual(
-            self.client.post(
-                "/api/v1/auth/logout/"
-            ).status_code,
-            204,
-        )
-        self.assertEqual(
-            self.client.get(self.url).status_code,
-            401,
-        )
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["token"])
+        self.assertEqual(self.client.post("/api/v1/auth/logout/").status_code, 204)
+        self.assertEqual(self.client.get(self.url).status_code, 401)
 
     def test_health_with_browser_accept_header(self):
         self.client.credentials()
