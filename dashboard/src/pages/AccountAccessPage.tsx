@@ -36,8 +36,8 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
         window.history.replaceState(null, "", "/verify-email");
       } else if (params.has("uid") && params.has("token")) {
         const result = await completeRecovery(params.get("uid") ?? "", params.get("token") ?? "");
-        adoptSession(result.token);
         setSecret(result.login_key ?? null);
+        setNewToken(result.token);
         window.history.replaceState(null, "", "/recover");
       } else {
         await requestRecovery(String(data.get("email")));
