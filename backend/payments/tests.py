@@ -374,7 +374,9 @@ class PaymentAPITests(APITestCase):
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, DASHBOARD_ORIGIN="https://wallet.example.test",
-                   EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+                   EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+                   REST_FRAMEWORK={**__import__("django.conf", fromlist=["settings"]).settings.REST_FRAMEWORK,
+                                   "DEFAULT_THROTTLE_RATES": {"anon": "10000/min", "user": "10000/min", "auth": "10000/min"}})
 class PrivateMerchantAuthTests(APITestCase):
     def test_key_only_signup_login_and_no_email(self):
         created = self.client.post("/api/v1/auth/register/", {}, format="json")
