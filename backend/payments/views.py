@@ -107,7 +107,7 @@ def _send_recovery_email(email, subject, path):
         raise RuntimeError("Configure HTTPS ZPAY_DASHBOARD_ORIGIN before enabling recovery")
     if not origin:
         raise RuntimeError("Configure ZPAY_DASHBOARD_ORIGIN")
-    send_mail(subject, f"Open this link to continue:\\n{origin}{path}\\n\\nThis link expires in one hour. If you did not request it, ignore this email.", settings.DEFAULT_FROM_EMAIL, [email], fail_silently=False)
+    send_mail(subject, f"Open this link to continue:\n{origin}{path}\n\nThis link expires in one hour. If you did not request it, ignore this email.", settings.DEFAULT_FROM_EMAIL, [email], fail_silently=False)
 
 
 class Register(APIView):
@@ -193,7 +193,7 @@ class SetRecoveryEmail(APIView):
         # Do not disclose whether another merchant owns an email.
         if get_user_model().objects.filter(email__iexact=email).exclude(pk=request.user.pk).exists():
             return Response({"detail": "This email cannot be used."}, status=400)
-        token = signing.dumps({"uid": request.user.pk, "email": email}, salt="zoerd-recovery-verify")
+        token = signing.dumps({"uid": request.user.pk, "email": email, "prior_email": request.user.email}, salt="zoerd-recovery-verify")
         try:
             _send_recovery_email(email, "Verify your ZOERDWALLET recovery email", "/verify-email?token=" + quote(token))
         except Exception:
@@ -214,10 +214,13 @@ class VerifyRecoveryEmail(APIView):
             payload = signing.loads(data.validated_data["token"], salt="zoerd-recovery-verify", max_age=3600)
             user = get_user_model().objects.get(pk=payload["uid"], is_active=True)
             email = payload["email"].lower()
+            prior_email = payload["prior_email"]
         except (signing.BadSignature, signing.SignatureExpired, KeyError, ValueError, get_user_model().DoesNotExist):
             return Response({"detail": "Verification link invalid or expired."}, status=400)
         with transaction.atomic():
             user = get_user_model().objects.select_for_update().get(pk=user.pk)
+            if user.email != prior_email:
+                return Response({"detail": "Verification link no longer valid."}, status=400)
             if get_user_model().objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
                 return Response({"detail": "This email cannot be used."}, status=400)
             Credential.objects.filter(owner=user, kind="verified").update(revoked_at=timezone.now())
