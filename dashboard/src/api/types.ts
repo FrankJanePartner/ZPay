@@ -91,6 +91,8 @@ export interface WalletActivity {
   pool?: number;
   output_index?: number;
   mined_height?: number | null;
+  block_time?: string | null;
+  first_seen_at?: string | null;
   late?: boolean | null;
   address?: string | null;
   confirmations?: number | null;
