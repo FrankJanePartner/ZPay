@@ -430,7 +430,7 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
             recovery_phrase,
             recipient,
             amount,
-            None,
+            memo,
         )?;
 
     broadcast_signed_transactions(
