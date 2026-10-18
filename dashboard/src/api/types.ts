@@ -88,6 +88,10 @@ export interface WalletActivity {
   timestamp_source: "block" | "local_request";
   fee_zatoshis: string | null;
   fee_verified: boolean;
+  pool?: number;
+  output_index?: number;
+  late?: boolean | null;
+  address?: string | null;
   confirmations?: number | null;
   payment_request?: string | null;
   error?: string;
