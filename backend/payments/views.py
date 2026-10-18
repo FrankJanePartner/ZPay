@@ -163,6 +163,31 @@ class LegacyLogin(APIView):
         return Response(_issue_session(user))
 
 
+class LegacyMigrate(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    def post(self, request):
+        data = CredentialsInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        user = authenticate(username=data.validated_data["email"].lower(),
+                            password=data.validated_data["password"])
+        if user is None:
+            return Response({"detail": "Invalid credentials."}, status=401)
+        with transaction.atomic():
+            user = get_user_model().objects.select_for_update().get(pk=user.pk)
+            if Credential.objects.filter(owner=user, kind="login").exists():
+                return Response({"detail": "Account already migrated."}, status=409)
+            raw = _issue_login_key(user)
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+            Credential.objects.filter(owner=user, kind="session").update(revoked_at=timezone.now())
+            session = _issue_session(user)
+        return Response({**session, "login_key": raw}, status=201)
+
+
 class ActivateLoginSecret(APIView):
     permission_classes = [DashboardOnly]
     throttle_classes = [ScopedRateThrottle]
