@@ -52,10 +52,25 @@ class Balance(APIView):
             "stale": not ready or bool(state.last_error) or state.synced_at < timezone.now()-timedelta(seconds=120),
             "sync_error": state.last_error if state else "", "settlement_enabled": False})
 
+class ActivityOutput(serializers.Serializer):
+    id = serializers.CharField()
+    direction = serializers.ChoiceField(choices=["sent", "received"])
+    txid = serializers.CharField(allow_null=True)
+    amount_zatoshis = serializers.CharField()
+    memo = serializers.CharField(allow_null=True, allow_blank=True)
+    status = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    timestamp_source = serializers.CharField()
+    fee_zatoshis = serializers.CharField(allow_null=True)
+    fee_verified = serializers.BooleanField()
+
+
 class Transactions(APIView):
     """Combined wallet activity. Fees remain null until verified by the wallet SDK."""
 
     @extend_schema(tags=["Wallet"], summary="List sent and received wallet activity",
+                   responses={200: ActivityOutput(many=True)},
+                   examples=[OpenApiExample("Sent transaction", value={"id": "example-id", "direction": "sent", "txid": None, "amount_zatoshis": "123456", "memo": "Invoice 7", "status": "pending", "timestamp": "2026-10-18T10:00:00Z", "timestamp_source": "local_request", "fee_zatoshis": None, "fee_verified": False}, response_only=True)],
                    description="Newest-first, 50 per page. Sent timestamps are local request times, not verified block timestamps. Network fees are null until verified from chain data.")
     def get(self, request):
         chain_height = WalletSync.objects.filter(owner=request.user).values_list("chain_height", flat=True).first()
