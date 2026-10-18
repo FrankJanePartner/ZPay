@@ -378,6 +378,19 @@ class PaymentAPITests(APITestCase):
                    REST_FRAMEWORK={**__import__("django.conf", fromlist=["settings"]).settings.REST_FRAMEWORK,
                                    "DEFAULT_THROTTLE_RATES": {"anon": "10000/min", "user": "10000/min", "auth": "10000/min"}})
 class PrivateMerchantAuthTests(APITestCase):
+    def setUp(self):
+        # ScopedRateThrottle caches its configured rate at import/class initialization.
+        # Isolate these authentication-flow tests from global rate-limit state
+        # without changing the production throttle configuration.
+        from django.core.cache import cache
+        cache.clear()
+        throttle_patch = patch(
+            "rest_framework.throttling.ScopedRateThrottle.get_rate",
+            return_value="10000/min",
+        )
+        throttle_patch.start()
+        self.addCleanup(throttle_patch.stop)
+
     def test_key_only_signup_login_and_no_email(self):
         created = self.client.post("/api/v1/auth/register/", {}, format="json")
         self.assertEqual(created.status_code, 201)
