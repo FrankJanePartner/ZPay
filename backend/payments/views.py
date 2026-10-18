@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, OpenApiExample
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
@@ -120,6 +121,12 @@ class PaymentDetail(generics.RetrieveAPIView):
 
 class Sends(generics.ListCreateAPIView):
     serializer_class = SendOutput
+
+    @extend_schema(examples=[OpenApiExample(
+        "Sent request list", value={"count": 0, "next": None, "previous": None, "results": []}, response_only=True
+    )])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         return SendRequest.objects.filter(owner=self.request.user).order_by("-created_at", "-id")

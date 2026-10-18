@@ -75,4 +75,29 @@ export interface DepositOutput {
   first_seen_at: string;
 }
 
+export interface WalletActivity {
+  id: string;
+  direction: "sent" | "received";
+  txid: string | null;
+  txids?: string[];
+  recipient_address?: string | null;
+  amount_zatoshis: string;
+  memo: string | null;
+  status: string;
+  timestamp: string;
+  timestamp_source: "block" | "local_request";
+  fee_zatoshis: string | null;
+  fee_verified: boolean;
+  pool?: number;
+  output_index?: number;
+  mined_height?: number | null;
+  block_time?: string | null;
+  first_seen_at?: string | null;
+  late?: boolean | null;
+  address?: string | null;
+  confirmations?: number | null;
+  payment_request?: string | null;
+  error?: string;
+}
+
 export type ApiErrorFields = Record<string, string | string[]>;

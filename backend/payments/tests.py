@@ -104,3 +104,40 @@ class PaymentAPITests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/json")
         self.assertEqual(response.json()["service"], "ZOERDWALLET API")
+
+
+    def test_combined_history_contains_sent_and_received_details(self):
+        from .models import Deposit, SendRequest
+        sent = SendRequest.objects.create(
+            owner=self.user, idempotency_key="send-1",
+            recipient_address="test-shielded-recipient",
+            amount_zatoshis=123456, memo="Invoice 7",
+            status="broadcast", txids=["a" * 64],
+        )
+        Deposit.objects.create(
+            owner=self.user, txid="b" * 64, pool=3, output_index=0,
+            amount_zatoshis=10000, memo="Received note",
+            mined_height=100, block_time=timezone.now(),
+        )
+        response = self.client.get("/api/v1/transactions/")
+        self.assertEqual(response.status_code, 200)
+        rows = response.data["results"]
+        self.assertEqual(len(rows), 2)
+        by_direction = {row["direction"]: row for row in rows}
+        self.assertEqual(by_direction["sent"]["amount_zatoshis"], "123456")
+        self.assertEqual(by_direction["sent"]["memo"], "Invoice 7")
+        self.assertEqual(by_direction["sent"]["txid"], "a" * 64)
+        self.assertIsNone(by_direction["sent"]["fee_zatoshis"])
+        self.assertEqual(by_direction["received"]["memo"], "Received note")
+        self.assertEqual(by_direction["received"]["timestamp_source"], "block")
+        self.assertTrue(all("timestamp" in row for row in rows))
+
+    def test_transaction_history_isolated_by_account(self):
+        from .models import SendRequest
+        SendRequest.objects.create(
+            owner=self.other, idempotency_key="private",
+            recipient_address="test-recipient", amount_zatoshis=42,
+        )
+        response = self.client.get("/api/v1/transactions/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)

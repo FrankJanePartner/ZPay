@@ -5,7 +5,8 @@ from rest_framework import generics, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
-from .models import Deposit, WalletSync
+from .models import Deposit, WalletSync, SendRequest
+from rest_framework.pagination import PageNumberPagination
 
 class DepositOutput(serializers.ModelSerializer):
     amount_zatoshis = serializers.SerializerMethodField()
@@ -51,14 +52,56 @@ class Balance(APIView):
             "stale": not ready or bool(state.last_error) or state.synced_at < timezone.now()-timedelta(seconds=120),
             "sync_error": state.last_error if state else "", "settlement_enabled": False})
 
-class Transactions(generics.ListAPIView):
-    serializer_class = DepositOutput
-    def get_queryset(self):
-        return Deposit.objects.filter(owner=self.request.user).select_related("payment_request")
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["chain_height"] = WalletSync.objects.filter(owner=self.request.user).values_list("chain_height", flat=True).first()
-        return context
-    @extend_schema(tags=["Wallet"], summary="List received transaction outputs", description="Paginated deposit history (50 per page). One row per transaction output; one transaction may have multiple outputs. Only mined external receipts are listed; mempool transactions are not included. Reversed rows remain for audit but do not count toward received totals. late compares block time with the request expiry, not broadcast time. An unmatched output has payment_request=null and still belongs to your wallet. Confirmations reflect the last successful scan; check balance.stale.", examples=[OpenApiExample("Deposit output", value={"id": "db32a049-4b34-4c48-ae39-072c5f9395c00", "payment_request": "0787e217-5be4-4258-a9d1-ca991c2558c4", "txid": "ab"*32, "pool": 3, "output_index": 0, "amount_zatoshis": "100000", "address": "u1EXAMPLE_NOT_A_PAYMENT_ADDRESS", "mined_height": 3484368, "block_time": "2026-09-15T16:00:00Z", "confirmations": 1, "status": "confirmed", "late": True, "first_seen_at": "2026-09-15T16:01:00Z"}, response_only=True)])
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+class ActivityOutput(serializers.Serializer):
+    id = serializers.CharField()
+    direction = serializers.ChoiceField(choices=["sent", "received"])
+    txid = serializers.CharField(allow_null=True)
+    amount_zatoshis = serializers.CharField()
+    memo = serializers.CharField(allow_null=True, allow_blank=True)
+    status = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    timestamp_source = serializers.CharField()
+    fee_zatoshis = serializers.CharField(allow_null=True)
+    fee_verified = serializers.BooleanField()
+
+
+class Transactions(APIView):
+    """Combined wallet activity. Fees remain null until verified by the wallet SDK."""
+
+    @extend_schema(tags=["Wallet"], summary="List sent and received wallet activity",
+                   responses={200: ActivityOutput(many=True)},
+                   examples=[OpenApiExample("Sent transaction", value={"id": "example-id", "direction": "sent", "txid": None, "amount_zatoshis": "123456", "memo": "Invoice 7", "status": "pending", "timestamp": "2026-10-18T10:00:00Z", "timestamp_source": "local_request", "fee_zatoshis": None, "fee_verified": False}, response_only=True)],
+                   description="Newest-first, 50 per page. Sent timestamps are local request times, not verified block timestamps. Network fees are null until verified from chain data.")
+    def get(self, request):
+        chain_height = WalletSync.objects.filter(owner=request.user).values_list("chain_height", flat=True).first()
+        incoming = Deposit.objects.filter(owner=request.user).select_related("payment_request")
+        outgoing = SendRequest.objects.filter(owner=request.user)
+        rows = []
+        for deposit in incoming:
+            record = DepositOutput(deposit, context={"chain_height": chain_height}).data
+            record.update({
+                "direction": "received", "timestamp": deposit.block_time.isoformat(),
+                "timestamp_source": "block", "fee_zatoshis": None,
+                "fee_verified": False, "recipient_address": None,
+            })
+            rows.append(record)
+        for sent in outgoing:
+            # A send request can be signed without a confirmed broadcast.
+            # Never imply an on-chain confirmation from the local journal.
+            rows.append({
+                "id": str(sent.id), "direction": "sent",
+                "txid": sent.txids[0] if sent.txids else None,
+                "txids": sent.txids, "recipient_address": sent.recipient_address,
+                "amount_zatoshis": str(sent.amount_zatoshis),
+                "memo": sent.memo, "status": sent.status,
+                "timestamp": sent.created_at.isoformat(),
+                "timestamp_source": "local_request",
+                "fee_zatoshis": None, "fee_verified": False,
+                "confirmations": None, "error": sent.error,
+                "payment_request": None,
+            })
+        rows.sort(key=lambda row: row["timestamp"], reverse=True)
+        paginator = PageNumberPagination()
+        paginator.page_size = 50
+        page = paginator.paginate_queryset(rows, request, view=self)
+        return paginator.get_paginated_response(page)

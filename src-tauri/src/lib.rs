@@ -288,6 +288,7 @@ async fn send_zec(
     state: State<'_, AppState>,
     recipient_address: String,
     amount_zec: f64,
+    memo: Option<String>,
 ) -> Result<Vec<String>, String> {
     let path = state.wallet_db_path.clone();
     let endpoint = state.lightwalletd_endpoint.clone();
@@ -307,6 +308,7 @@ async fn send_zec(
         &recovery_phrase,
         &recipient_address,
         amount_zec,
+        memo.as_deref().filter(|value| !value.is_empty()),
     )
     .await
 }

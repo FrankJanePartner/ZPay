@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { getPayments, getRecentTransactions, getWalletBalance } from "../api/queries";
 import { useApiCooldown, useClock, useConnectivity, useFinancialRefresh } from "../api/liveState";
 import { PaymentCard } from "./PaymentsPage";
-import type { DepositOutput, WalletBalance } from "../api/types";
+import type { WalletActivity, WalletBalance } from "../api/types";
 import { ErrorState, LoadingSkeleton } from "../components/AsyncState";
 import { CopyButton } from "../components/CopyButton";
 import { formatZec } from "../components/Money";
@@ -45,21 +45,25 @@ function shortValue(value: string): string {
   return value.length <= 18 ? value : `${value.slice(0, 10)}…${value.slice(-6)}`;
 }
 
-function RecentOutput({ output }: { output: DepositOutput }) {
+function RecentOutput({ output }: { output: WalletActivity }) {
   return (
     <li className="recent-output">
       <div>
-        <strong>{amountLabel(output.amount_zatoshis)}</strong>
-        <span>{formattedTimestamp(output.block_time)}</span>
+        <strong>{output.direction === "sent" ? "Sent −" : "Received +"}{amountLabel(output.amount_zatoshis)}</strong>
+        <span>{formattedTimestamp(output.timestamp)}</span>
       </div>
       <div className="recent-output-meta">
-        <span className={`output-status ${output.status}`}> {output.status === "confirmed" ? "Confirmed" : "Reversed"}</span>
-        <span title={output.txid}>Transaction {shortValue(output.txid)}</span>
-        <CopyButton label="transaction ID" value={output.txid} />
-        {output.address ? (
+        <span className={`output-status ${output.status}`}> {output.status.replace(/_/g, " ").replace(/^./, (char) => char.toUpperCase())}</span>
+        {output.txid ? (
           <>
-            <span title={output.address}>Address {shortValue(output.address)}</span>
-            <CopyButton label="address" value={output.address} />
+            <span title={output.txid}>Transaction {shortValue(output.txid)}</span>
+            <CopyButton label="transaction ID" value={output.txid} />
+          </>
+        ) : <span>Transaction ID not available</span>}
+        {(output.direction === "sent" ? output.recipient_address : output.address) ? (
+          <>
+            <span title={(output.direction === "sent" ? output.recipient_address : output.address) ?? undefined}>{output.direction === "sent" ? "Recipient" : "Address"} {shortValue((output.direction === "sent" ? output.recipient_address : output.address) ?? "")}</span>
+            <CopyButton label="address" value={(output.direction === "sent" ? output.recipient_address : output.address) ?? ""} />
           </>
         ) : null}
         {output.payment_request ? (
@@ -69,6 +73,7 @@ function RecentOutput({ output }: { output: DepositOutput }) {
           </>
         ) : null}
         {output.memo ? <span title={output.memo}>Memo: {output.memo}</span> : null}
+        <span>Network fee: {output.fee_verified && output.fee_zatoshis !== null ? amountLabel(output.fee_zatoshis) : "Not verified"}</span>
       </div>
     </li>
   );
@@ -165,21 +170,21 @@ export function DashboardPage() {
 
       <section className="recent-section" aria-labelledby="recent-outputs-title">
         <div className="section-heading">
-          <h2 id="recent-outputs-title">Recent received outputs</h2>
+          <h2 id="recent-outputs-title">Recent transactions</h2>
           <Link to="/transactions">View all transactions</Link>
         </div>
         {transactionsQuery.isLoading && !transactions ? (
-          <LoadingSkeleton label="Loading recent outputs" className="recent-skeleton" />
+          <LoadingSkeleton label="Loading recent transactions" className="recent-skeleton" />
         ) : null}
         {transactionsQuery.isError && !transactions ? (
           <ErrorState error={transactionsQuery.error}>
-            <p>Unable to load recent outputs.</p>
+            <p>Unable to load recent transactions.</p>
             <button type="button" disabled={cooldown > 0 || !online} onClick={() => void transactionsQuery.refetch()}>Retry recent outputs</button>
           </ErrorState>
         ) : null}
         {transactions?.results.length === 0 ? (
           <div className="empty-state">
-            <p>No received outputs yet.</p>
+            <p>No wallet activity yet.</p>
             <Link className="button-link" to="/payments">Create payment request</Link>
           </div>
         ) : null}

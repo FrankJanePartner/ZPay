@@ -148,3 +148,31 @@ passes the budget to the private service, waits an additional 15 seconds for HTT
 and keeps its account lease for an additional 60 seconds. The service budget includes
 waiting for the wallet lock. Previous snapshots are preserved on timeout. This does
 not make an unsynced lightwalletd ready or prove global chain freshness.
+
+
+## Transaction fixes under review (not production verified)
+
+The desktop Tauri send command now accepts an optional memo, checks its UTF-8 byte
+length, and passes it to the existing Rust ZIP-321 transaction builder. Zcash
+memos are only supported for shielded recipients. Never retry an ambiguous
+broadcast with a new request identifier without checking the transaction first.
+
+GET /api/v1/transactions/ now combines the Django API's persisted sent requests
+with mined received outputs, newest first. A sent row uses the local request
+timestamp (timestamp_source=local_request), not the chain timestamp. Incoming
+rows use block time. fee_zatoshis remains null because no verified transaction
+fee is currently supplied by this API. Null is not zero. Sent records reflect
+the API's send journal; desktop-only transactions are not automatically synced
+into the Django account ledger. This endpoint does not yet offer a complete
+on-chain transaction ledger or confirmed outgoing status.
+
+Before merging:
+1. Run `python backend/manage.py test payments` with configured dependencies.
+2. Run `npm ci && npm run build` and `cargo check --manifest-path src-tauri/Cargo.toml`.
+3. Back up the existing wallet SQLite data and recovery material offline.
+4. On the desktop with lightwalletd ready, test ordinary ZEC sending and
+   shielded memo sending with small controlled amounts.
+5. Check received memos, transaction IDs, pending and confirmed statuses,
+   accurate fees and history after restart. These are not all implemented yet.
+6. Do not merge or deploy until wallet/node integration and history reconciliation
+   are completed.

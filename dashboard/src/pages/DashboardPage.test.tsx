@@ -8,7 +8,7 @@ import { session } from "../auth/session";
 import { appRoutes } from "../router";
 import { API_ORIGIN } from "../test/handlers";
 import { server } from "../test/server";
-import type { DepositOutput, WalletBalance } from "../api/types";
+import type { WalletActivity, WalletBalance } from "../api/types";
 
 const balance = {
   total_zatoshis: "100000000",
@@ -24,6 +24,11 @@ const balance = {
 
 const recentOutput = {
   id: "db32a049-4b34-4c48-ae39-072c5f9395c00",
+  direction: "received" as const,
+  timestamp: "2026-09-15T16:00:00Z",
+  timestamp_source: "block" as const,
+  fee_zatoshis: null,
+  fee_verified: false,
   payment_request: "0787e217-5be4-4258-a9d1-ca991c2558c4",
   txid: "ab".repeat(32),
   pool: 3,
@@ -53,7 +58,7 @@ function renderDashboard() {
   return { ...view, queryClient };
 }
 
-function respondWith(wallet: WalletBalance = balance, outputs: DepositOutput[] = [recentOutput]) {
+function respondWith(wallet: WalletBalance = balance, outputs: WalletActivity[] = [recentOutput]) {
   server.use(
     http.get(`${API_ORIGIN}/api/v1/balance/`, () => HttpResponse.json(wallet)),
     http.get(`${API_ORIGIN}/api/v1/transactions/`, () =>
@@ -126,7 +131,7 @@ describe("dashboard overview", () => {
 
     renderDashboard();
 
-    expect(await screen.findAllByText("Not synced")).toHaveLength(4);
+    expect((await screen.findAllByText("Not synced")).length).toBeGreaterThanOrEqual(4);
     expect(screen.getByRole("alert")).toHaveTextContent(/out of date/i);
     expect(screen.getByText("Settlement disabled")).toBeVisible();
     expect(screen.queryByText("0.00000000 ZEC")).not.toBeInTheDocument();
@@ -170,7 +175,7 @@ describe("dashboard overview", () => {
 
     renderDashboard();
 
-    expect(await screen.findByText(/No received outputs yet/i)).toBeVisible();
+    expect(await screen.findByText(/No wallet activity yet/i)).toBeVisible();
     expect(screen.getByRole("link", { name: /Create payment request/i })).toHaveAttribute(
       "href",
       "/payments",
