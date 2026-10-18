@@ -21,6 +21,9 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (credentials: Credentials, signal?: AbortSignal) => Promise<boolean>;
   register: (credentials: Credentials, signal?: AbortSignal) => Promise<boolean>;
+  issuedLoginKey: string | null;
+  clearIssuedLoginKey: () => void;
+  adoptSession: (token: string, loginKey?: string) => void;
   logout: () => Promise<void>;
 }
 
@@ -29,6 +32,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [token, setToken] = useState(() => session.getToken());
+  const [issuedLoginKey, setIssuedLoginKey] = useState<string | null>(null);
   const mounted = useRef(false);
   const authGeneration = useRef(0);
   const activeToken = useRef(session.getToken());
@@ -64,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      if (response.login_key) setIssuedLoginKey(response.login_key);
       session.setToken(response.token);
       return true;
     },
@@ -73,6 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthenticated: token !== null,
+      issuedLoginKey,
+      clearIssuedLoginKey() { setIssuedLoginKey(null); },
+      adoptSession(nextToken, loginKey) {
+        if (loginKey) setIssuedLoginKey(loginKey);
+        session.setToken(nextToken);
+      },
       login(credentials, signal) {
         return authenticate(requestLogin, credentials, signal);
       },
@@ -81,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async logout() {
         authGeneration.current += 1;
+        setIssuedLoginKey(null);
         try {
           await requestLogout();
         } catch {
@@ -90,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [authenticate, token],
+    [authenticate, token, issuedLoginKey],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
