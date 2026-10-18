@@ -9,6 +9,7 @@ import type {
   SendRequest,
   SessionResponse,
   WalletBalance,
+  WalletActivity,
 } from "./types";
 
 export interface Credentials {
@@ -63,7 +64,7 @@ export async function getWalletBalance(signal?: AbortSignal): Promise<WalletBala
   return response;
 }
 
-export async function getRecentTransactions(signal?: AbortSignal): Promise<Paginated<DepositOutput>> {
+export async function getRecentTransactions(signal?: AbortSignal): Promise<Paginated<WalletActivity>> {
   return getTransactions("/api/v1/transactions/", signal);
 }
 
@@ -92,7 +93,7 @@ export async function getTransactions(
   pageUrl = "/api/v1/transactions/",
   signal?: AbortSignal,
 ): Promise<Paginated<DepositOutput>> {
-  const response = await apiRequest<Paginated<DepositOutput>>(paginationPath(pageUrl, "/api/v1/transactions/"), {
+  const response = await apiRequest<Paginated<WalletActivity>>(paginationPath(pageUrl, "/api/v1/transactions/"), {
     signal,
   });
   if (!response) {
