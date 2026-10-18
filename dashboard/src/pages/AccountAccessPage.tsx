@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { completeRecovery, migrateLegacy, requestRecovery, setRecoveryEmail, verifyRecoveryEmail } from "../api/queries";
+import { completeRecovery, migrateLegacy, confirmMigration, requestRecovery, setRecoveryEmail, verifyRecoveryEmail } from "../api/queries";
 import { useAuth } from "../auth/AuthProvider";
 
 export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "verify" | "settings"}) {
@@ -13,6 +13,19 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
+  async function finish() {
+    if (!secret || !saved || !newToken) return;
+    try {
+      if (mode === "migrate") {
+        const result = await confirmMigration(secret);
+        adoptSession(result.token);
+      } else {
+        adoptSession(newToken);
+      }
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.detail : "Unable to complete migration.");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +73,8 @@ export function AccountAccessPage({ mode }: {mode: "migrate" | "recover" | "veri
       <textarea readOnly rows={3} value={secret} aria-label="New merchant login secret"/>
       <button type="button" onClick={() => navigator.clipboard.writeText(secret)}>Copy secret</button>
       <label><input type="checkbox" checked={saved} onChange={event => setSaved(event.target.checked)}/> I have securely saved my secret</label>
-      {saved && newToken ? <button type="button" onClick={() => adoptSession(newToken)}>Continue to dashboard</button> : null}
+      {error ? <p role="alert" className="form-error">{error}</p> : null}
+      {saved && newToken ? <button type="button" onClick={() => void finish()}>Continue to dashboard</button> : null}
     </section> : <form onSubmit={submit}>
       {mode === "migrate" ? <p>Sign in once with your existing email and password. Your merchant ID, wallet history and API keys remain unchanged. This disables password login for that account.</p> : null}
       {mode === "settings" ? <p>Recovery is optional. We will send a verification link. Until verified, this email cannot recover your account.</p> : null}
