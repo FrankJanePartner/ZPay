@@ -67,6 +67,11 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_COOKIE_SECURE = True
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("ZPAY_CSRF_TRUSTED_ORIGINS", "https://api.zoerd.com").split(",")
+    if origin.strip().startswith("https://")
+]
 CORS_ALLOWED_ORIGINS = [
     item.strip()
     for item in os.environ.get(
