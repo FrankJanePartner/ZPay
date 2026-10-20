@@ -62,10 +62,25 @@ if EMAIL_USE_TLS and EMAIL_USE_SSL:
     raise RuntimeError("Configure only one of ZPAY_SMTP_TLS and ZPAY_SMTP_SSL.")
 EMAIL_TIMEOUT = 15
 DEFAULT_FROM_EMAIL = os.environ.get("ZPAY_FROM_EMAIL", "no-reply@zoerd.com")
-SECURE_REFERRER_POLICY = "no-referrer"
+SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Log CSRF rejection reasons without exposing credentials or token values.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "csrf_console": {"class": "logging.StreamHandler", "level": "WARNING"},
+    },
+    "loggers": {
+        "django.security.csrf": {
+            "handlers": ["csrf_console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
 CSRF_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
