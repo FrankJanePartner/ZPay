@@ -1,12 +1,14 @@
 from django.contrib import admin
 from django.urls import path
 from payments import views
+from payments.export import ExportTransactions
 from payments.ledger import Balance, Transactions
 from payments.docs import documentation_home  # Registers endpoint schema annotations.
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/balance/", Balance.as_view()),
     path("api/v1/transactions/", Transactions.as_view()),
+    path("api/v1/transactions/export/", ExportTransactions.as_view()),
     path("", documentation_home, name="api-docs"),
     path("health/", views.Health.as_view()),
     path("api/v1/auth/register/", views.Register.as_view()),
