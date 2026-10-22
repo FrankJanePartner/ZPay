@@ -67,3 +67,42 @@ mod tests {
         assert_eq!(status_from_chain(Some(123), true), TransactionStatus::Confirmed);
     }
 }
+
+pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<TransactionHistoryEntry>, String> {
+    use rusqlite::{Connection, OpenFlags};
+    if !path.is_file() {
+        return Err("Wallet database is not available.".to_owned());
+    }
+    let connection = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ).map_err(|e| format!("Unable to read wallet history: {e}"))?;
+    let mut statement = connection.prepare(
+        "SELECT hex(txid), SUM(account_balance_delta), MAX(fee_paid),          MAX(mined_height), MAX(block_time), MAX(expired_unmined)          FROM v_transactions GROUP BY txid          ORDER BY MAX(COALESCE(mined_height, 2147483647)) DESC LIMIT 200"
+    ).map_err(|e| format!("Unable to query wallet history: {e}"))?;
+    let rows = statement.query_map([], |row| {
+        let txid: String = row.get(0)?;
+        let delta: i64 = row.get(1)?;
+        let fee: Option<i64> = row.get(2)?;
+        let height: Option<u32> = row.get(3)?;
+        let block_time: Option<i64> = row.get(4)?;
+        let expired: Option<i64> = row.get(5)?;
+        let amount = if delta < 0 {
+            delta.saturating_add(fee.unwrap_or(0)).saturating_abs()
+        } else {
+            delta
+        };
+        Ok(TransactionHistoryEntry {
+            txid: txid.to_lowercase(),
+            direction: direction_from_balance_delta(delta),
+            status: status_from_chain(height, expired.unwrap_or(0) != 0),
+            amount_zatoshis: amount,
+            fee_zatoshis: fee.and_then(|f| u64::try_from(f).ok()),
+            mined_height: height,
+            block_time,
+            memos: Vec::new(),
+        })
+    }).map_err(|e| format!("Unable to load wallet history: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Unable to decode wallet history: {e}"))
+}
