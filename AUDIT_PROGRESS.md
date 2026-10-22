@@ -78,3 +78,16 @@ Always preserve the 16 fixed milestone titles, numbering and order. Report **new
 **Critical open items:** Build wallet transaction-history read model from supported Zcash client APIs, surface sent/received records with fees and memos in Tauri UI, reproduce and resolve shielded memo broadcasting, run real wallet end-to-end tests. Do not use undocumented SQLite internals as a shortcut, and do not expose recovery phrases or keys.
 
 **Safety:** Draft PR #5 remains unmerged. Personal main and ZOERDHUB company fork unchanged.
+
+
+## Checkpoint 03: exact ZEC amounts at the desktop boundary (2026-10-22)
+
+**Scope:** Milestones 03, 04, 09. Milestone names, order, and status remain unchanged.
+
+**Code:** `a1d0b91` changes the Tauri send command to accept integer zatoshis and call the integer-based Rust send path. `0f8b4d1` parses desktop decimal ZEC amounts into integer zatoshis using BigInt, enforces eight-decimal precision and network monetary limits, and passes a safe integer to Tauri. These are committed but not live-wallet verified.
+
+**CI checked on `0f8b4d1`:** Frontend and backend workflows successful; wallet-service and Rust workflows still in progress at check time. Do not mark those two as passed.
+
+**Still required:** Rust build/test conclusion; shielded memo broadcast testing; persistent sent/received transaction history with fee, memo, timestamp and status; full end-to-end payment regression testing.
+
+**Reporting discipline:** Keep the detailed 16-milestone task checklist expanded in user-facing updates; do not substitute a shortened milestone summary. Do not change historical denominators silently when adding legitimately necessary tasks.
