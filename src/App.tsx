@@ -67,6 +67,8 @@ function App() {
         setWalletOpenError(false);
         setStatus(null);
         setAddresses([]);
+        setHistory([]);
+        setHistoryError(null);
         return;
       }
 
@@ -95,6 +97,8 @@ function App() {
       setWalletExists(null);
       setStatus(null);
       setAddresses([]);
+      setHistory([]);
+      setHistoryError(null);
     }
   }
 
