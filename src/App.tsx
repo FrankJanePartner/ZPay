@@ -473,9 +473,9 @@ function App() {
 
             <div className="amountInput">
               <input
-                type="number"
-                min="0"
-                step="0.00000001"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]+(\\.[0-9]{1,8})?"
                 value={sendAmount}
                 onChange={(e) =>
                   setSendAmount(e.target.value)
@@ -537,10 +537,13 @@ function App() {
           <strong>{status?.fully_scanned_height ?? "Not scanned"}</strong>
         </div>
 
-        <p className="warning">
-          The backing Zebra node is still catching up to current Zcash
-          mainnet. Do not fund this development wallet yet.
-        </p>
+        {(nodeHeight == null || status?.fully_scanned_height == null ||
+          status.fully_scanned_height < nodeHeight) && (
+          <p className="warning">
+            Wallet synchronization is incomplete or the backing node is unavailable.
+            Do not rely on the displayed balance until synchronization finishes.
+          </p>
+        )}
       </section>
 
       <section className="card">
