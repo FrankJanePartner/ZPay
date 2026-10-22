@@ -444,6 +444,27 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
 #[cfg(test)]
 mod tests {
     use super::zatoshis_from_zec;
+    use zcash_protocol::memo::Memo;
+
+    #[test]
+    fn accepts_unicode_memo_within_byte_limit() {
+        let memo = "Payment for services 🪙";
+        assert!(memo.parse::<Memo>().is_ok());
+    }
+
+    #[test]
+    fn rejects_memo_over_512_utf8_bytes() {
+        let memo = "🪙".repeat(129);
+        assert!(memo.as_bytes().len() > 512);
+        assert!(memo.parse::<Memo>().is_err());
+    }
+
+    #[test]
+    fn accepts_exactly_512_byte_memo() {
+        let memo = "x".repeat(512);
+        assert!(memo.parse::<Memo>().is_ok());
+    }
+
 
     #[test]
     fn rejects_non_finite_or_non_positive_amounts() {
