@@ -85,7 +85,10 @@ pub fn transaction_request(
     amount: Zatoshis,
     memo: Option<&str>,
 ) -> Result<TransactionRequest, String> {
+    // Treat whitespace-only memos as absent, rather than constructing an
+    // unnecessary memo output. Preserve meaningful memo whitespace verbatim.
     let memo_bytes = memo
+        .filter(|value| !value.trim().is_empty())
         .map(|value| {
             value
                 .parse::<Memo>()
