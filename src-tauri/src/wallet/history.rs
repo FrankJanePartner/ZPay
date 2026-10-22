@@ -103,6 +103,47 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
             memos: Vec::new(),
         })
     }).map_err(|e| format!("Unable to load wallet history: {e}"))?;
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Unable to decode wallet history: {e}"))
+    let mut entries = rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Unable to decode wallet history: {e}"))?;
+    drop(statement);
+
+    // Memos are binary ZIP-302 values. The empty memo (0xf6 followed by
+    // zero padding) must not be rendered as a user-written message.
+    let mut memo_query = connection.prepare(
+        "SELECT memo FROM v_tx_outputs WHERE hex(txid) = ?1 AND memo IS NOT NULL"
+    ).map_err(|e| format!("Unable to query transaction memos: {e}"))?;
+    for entry in &mut entries {
+        let values = memo_query.query_map([entry.txid.to_uppercase()], |row| {
+            row.get::<_, Vec<u8>>(0)
+        }).map_err(|e| format!("Unable to read transaction memos: {e}"))?;
+        for value in values {
+            let bytes = value.map_err(|e| format!("Unable to decode transaction memo: {e}"))?;
+            if let Some(text) = display_memo(&bytes) {
+                if !entry.memos.contains(&text) {
+                    entry.memos.push(text);
+                }
+            }
+        }
+    }
+    Ok(entries)
+}
+
+fn display_memo(bytes: &[u8]) -> Option<String> {
+    if bytes.is_empty() || bytes[0] == 0xf6 {
+        return None;
+    }
+    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches('\\0').trim_end();
+    if text.is_empty() { None } else { Some(text.to_owned()) }
+}
+
+#[cfg(test)]
+mod memo_display_tests {
+    use super::display_memo;
+
+    #[test]
+    fn reads_unicode_memos_and_ignores_empty() {
+        assert_eq!(display_memo("Payment ✓".as_bytes()), Some("Payment ✓".to_owned()));
+        assert_eq!(display_memo(&[0xf6, 0, 0]), None);
+        assert_eq!(display_memo(&[0xff, 0]), None);
+    }
 }
