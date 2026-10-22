@@ -35,6 +35,7 @@ function App() {
   const [nodeHeight, setNodeHeight] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendAmount, setSendAmount] = useState("");
@@ -86,6 +87,16 @@ function App() {
       .then(setSecureSecretAvailable)
       .catch(() => setSecureSecretAvailable(false));
   }, []);
+
+  async function refreshDashboard() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshWallet(), checkNode()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function createWallet() {
     setBusy(true);
@@ -324,12 +335,11 @@ function App() {
 
         <button
           className="secondary"
-          onClick={() => {
-            refreshWallet();
-            checkNode();
-          }}
+          onClick={refreshDashboard}
+          disabled={refreshing || busy}
+          aria-busy={refreshing}
         >
-          Refresh
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </header>
 
