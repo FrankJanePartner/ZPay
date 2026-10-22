@@ -329,6 +329,13 @@ fn wallet_status(
 }
 
 #[tauri::command]
+fn get_transaction_history(
+    state: State<'_, AppState>,
+) -> Result<Vec<wallet::history::TransactionHistoryEntry>, String> {
+    wallet::history::read_transaction_history(&state.wallet_db_path)
+}
+
+#[tauri::command]
 fn get_addresses(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
