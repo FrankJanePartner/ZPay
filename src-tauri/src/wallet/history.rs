@@ -78,7 +78,7 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     ).map_err(|e| format!("Unable to read wallet history: {e}"))?;
     let mut statement = connection.prepare(
-        "SELECT hex(txid), SUM(account_balance_delta), MAX(fee_paid),          MAX(mined_height), MAX(block_time), MAX(expired_unmined)          FROM v_transactions GROUP BY txid          ORDER BY MAX(COALESCE(mined_height, 2147483647)) DESC LIMIT 200"
+        "SELECT hex(txid), SUM(account_balance_delta), MAX(fee_paid),          MAX(mined_height), MAX(block_time), MAX(expired_unmined), MAX(pool_crossing_value)          FROM v_transactions GROUP BY txid          ORDER BY MAX(COALESCE(mined_height, 2147483647)) DESC LIMIT 200"
     ).map_err(|e| format!("Unable to query wallet history: {e}"))?;
     let rows = statement.query_map([], |row| {
         let txid: String = row.get(0)?;
@@ -87,14 +87,21 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
         let height: Option<u32> = row.get(3)?;
         let block_time: Option<i64> = row.get(4)?;
         let expired: Option<i64> = row.get(5)?;
-        let amount = if delta < 0 {
+        let pool_crossing: Option<i64> = row.get(6)?;
+        let amount = if let Some(crossing) = pool_crossing {
+            crossing
+        } else if delta < 0 {
             delta.saturating_add(fee.unwrap_or(0)).saturating_abs()
         } else {
             delta
         };
         Ok(TransactionHistoryEntry {
             txid: txid.to_lowercase(),
-            direction: direction_from_balance_delta(delta),
+            direction: if pool_crossing.is_some() {
+                TransactionDirection::Internal
+            } else {
+                direction_from_balance_delta(delta)
+            },
             status: status_from_chain(height, expired.unwrap_or(0) != 0),
             amount_zatoshis: amount,
             fee_zatoshis: fee.and_then(|f| u64::try_from(f).ok()),
@@ -107,6 +114,8 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
         .map_err(|e| format!("Unable to decode wallet history: {e}"))?;
     drop(statement);
 
+    // A pool-crossing transaction has a balance delta consisting only of its fee;
+    // show the migrated value as an internal transfer, not as a zero-value send.
     // Memos are binary ZIP-302 values. The empty memo (0xf6 followed by
     // zero padding) must not be rendered as a user-written message.
     let mut memo_query = connection.prepare(
