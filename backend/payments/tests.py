@@ -69,6 +69,16 @@ class PaymentAPITests(APITestCase):
         )
         self.assertEqual(self.client.get(self.url).status_code, 401)
 
+    def test_login_secret_cannot_authenticate_api(self):
+        _, raw = Credential.issue(self.user, "Merchant login", "login")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_verification_credential_cannot_authenticate_api(self):
+        _, raw = Credential.issue(self.user, "Verified email", "verified")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
     def test_api_key_cannot_create_other_keys(self):
         _, raw = Credential.issue(self.user, "Private Bill", "api")
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
