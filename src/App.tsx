@@ -268,6 +268,13 @@ function App() {
         memo: sendMemo || null,
       });
 
+      // A successful RPC with no transaction IDs is not proof of a broadcast.
+      // Keep the form intact so the user can investigate the wallet state.
+      if (txids.length === 0) {
+        setMessage("No transaction ID was returned. Check your wallet history before attempting another payment.");
+        return;
+      }
+
       setSendTxids(txids);
       setSendRecipient("");
       setSendAmount("");
