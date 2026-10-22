@@ -125,6 +125,51 @@ class PaymentAPITests(APITestCase):
             allocate.call_args.args[0].pk, payment.pk
         )
 
+    @patch("payments.views.allocate_address", return_value="TEST_ONLY_ADDRESS")
+    def test_payment_list_aggregates_active_deposits(self, allocate):
+        from .models import Deposit
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+
+        for index in range(3):
+            payment = PaymentRequest.objects.create(
+                owner=self.user,
+                idempotency_key=f"list-{index}",
+                reference=f"invoice-{index}",
+                amount_zatoshis=1000,
+                ttl_seconds=1800,
+            )
+            Deposit.objects.create(
+                owner=self.user,
+                payment_request=payment,
+                txid=f"{index + 1:064x}",
+                pool=3,
+                output_index=0,
+                amount_zatoshis=200,
+                mined_height=1,
+                block_time=timezone.now(),
+                active=True,
+            )
+            Deposit.objects.create(
+                owner=self.user,
+                payment_request=payment,
+                txid=f"{index + 10:064x}",
+                pool=3,
+                output_index=0,
+                amount_zatoshis=900,
+                mined_height=1,
+                block_time=timezone.now(),
+                active=False,
+            )
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 3)
+        self.assertTrue(all(row["received_zatoshis"] == "200" for row in response.data["results"]))
+        self.assertTrue(all(row["funding_status"] == "partially_paid" for row in response.data["results"]))
+        self.assertLessEqual(len(queries), 5)
+
     def test_cross_account_detail_and_list_are_isolated(self):
         payment = PaymentRequest.objects.create(
             owner=self.other,
