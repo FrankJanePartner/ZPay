@@ -91,3 +91,12 @@ Always preserve the 16 fixed milestone titles, numbering and order. Report **new
 **Still required:** Rust build/test conclusion; shielded memo broadcast testing; persistent sent/received transaction history with fee, memo, timestamp and status; full end-to-end payment regression testing.
 
 **Reporting discipline:** Keep the detailed 16-milestone task checklist expanded in user-facing updates; do not substitute a shortened milestone summary. Do not change historical denominators silently when adding legitimately necessary tasks.
+
+
+## Checkpoint 04: Rust CI job verification (2026-10-22)
+
+**Independent evidence:** GitHub Actions Rust job for commit `d8ee03a` (run 39790960014) is completed with conclusion **success**. Its `cargo test --locked` step also succeeded. Rust job for commit `43be304` (run 39791356396) is completed with conclusion **success** and `cargo test --locked` succeeded. These confirm Rust-side transparent memo regression tests and the subsequent broadcast error classification compile and pass the Rust CI suite.
+
+**Newest exact-amount commit `0f8b4d1`:** Rust job in run 39791955854 still showed in progress when checked, although its `cargo test --locked` step completed successfully. Do not report this newest job as concluded until the job conclusion is success.
+
+**Still not verified:** real Zcash transfer, shielded memo broadcast, sent/received history and fee/memo display. No production merge.
