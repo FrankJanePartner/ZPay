@@ -2,33 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-type WalletStatus = {
-  chain_height: number | null;
-  fully_scanned_height: number | null;
-  total_zatoshis: number;
-  spendable_zatoshis: number;
-  pending_zatoshis: number;
-  address_count: number;
-};
-
-type TransactionHistoryEntry = {
-  txid: string;
-  direction: "sent" | "received" | "internal";
-  status: "confirmed" | "pending" | "expired";
-  amount_zatoshis: number;
-  fee_zatoshis: number | null;
-  mined_height: number | null;
-  block_time: number | null;
-  memos: string[];
-};
-
-type CreatedWallet = {
-  recovery_phrase: string;
-  address: string;
-  birthday_height: number;
-  chain_tip: number;
-  secure_storage_saved: boolean;
-};
+import type { WalletStatus, TransactionHistoryEntry, CreatedWallet } from "./wallet-types";
 
 const ZATOSHIS_PER_ZEC = 100_000_000;
 
