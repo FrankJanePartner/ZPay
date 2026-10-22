@@ -256,7 +256,7 @@ function App() {
 
     // Transparent Zcash addresses cannot receive transaction memos.
     // Reject this combination before requesting a signed transaction.
-    if (sendMemo.length > 0 && /^(?:t1|t3)/.test(recipient)) {
+    if (sendMemo.trim().length > 0 && /^(?:t1|t3)/.test(recipient)) {
       setMessage("This is a transparent Zcash address. Memos require a shielded recipient address.");
       return;
     }
@@ -274,7 +274,7 @@ function App() {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
         amountZatoshis: Number(amountZatoshis),
-        memo: sendMemo || null,
+        memo: sendMemo.trim() || null,
       });
 
       // A successful RPC with no transaction IDs is not proof of a broadcast.
