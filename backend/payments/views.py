@@ -15,7 +15,7 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiExample
@@ -389,6 +389,11 @@ class Payments(generics.ListCreateAPIView):
     def get_queryset(self):
         return PaymentRequest.objects.filter(
             owner=self.request.user
+        ).annotate(
+            received_total=Sum(
+                "deposits__amount_zatoshis",
+                filter=Q(deposits__active=True),
+            )
         ).order_by("-created_at", "-id")
 
     def create(self, request, *args, **kwargs):
