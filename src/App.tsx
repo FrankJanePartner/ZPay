@@ -201,7 +201,7 @@ function App() {
     const raw = String(error);
     // A transport failure after signing does not prove the network rejected the transaction.
     // Do not invite an immediate retry that could produce a duplicate payment.
-    if (/lightwalletd rejected transaction RPC|failed to connect to lightwalletd for broadcast|signed transaction .* was not found/i.test(raw)) {
+    if (/Broadcast outcome unknown|lightwalletd rejected transaction RPC|failed to connect to lightwalletd for broadcast|signed transaction .* was not found/i.test(raw)) {
       return "The transaction broadcast could not be confirmed. Do not send again until you have checked your wallet and the network for the transaction.";
     }
     if (/Zcash network rejected transaction/i.test(raw)) {
