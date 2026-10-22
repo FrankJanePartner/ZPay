@@ -27,6 +27,7 @@ function zec(zatoshis: number) {
 
 function App() {
   const [walletExists, setWalletExists] = useState<boolean | null>(null);
+  const [walletOpenError, setWalletOpenError] = useState(false);
   const [status, setStatus] = useState<WalletStatus | null>(null);
   const [addresses, setAddresses] = useState<string[]>([]);
   const [recoveryPhrase, setRecoveryPhrase] = useState("");
@@ -46,9 +47,19 @@ function App() {
 
   async function refreshWallet() {
     try {
+      const exists = await invoke<boolean>("wallet_file_exists");
+      if (!exists) {
+        setWalletExists(false);
+        setWalletOpenError(false);
+        setStatus(null);
+        setAddresses([]);
+        return;
+      }
+
       const address = await invoke<string>("open_wallet");
 
       setWalletExists(true);
+      setWalletOpenError(false);
 
       const [walletStatus, walletAddresses] = await Promise.all([
         invoke<WalletStatus>("wallet_status"),
@@ -64,7 +75,9 @@ function App() {
           : []
       );
     } catch {
-      setWalletExists(false);
+      // Do not offer wallet creation when an existing wallet failed to open.
+      setWalletOpenError(true);
+      setWalletExists(null);
       setStatus(null);
       setAddresses([]);
     }
@@ -262,7 +275,14 @@ function App() {
     return (
       <main className="app">
         <h1>ZOERDWALLET</h1>
-        <p>Opening wallet...</p>
+        {walletOpenError ? (
+          <>
+            <p>Unable to open the wallet. Your existing wallet data has not been replaced.</p>
+            <button onClick={refreshWallet}>Retry opening wallet</button>
+          </>
+        ) : (
+          <p>Opening wallet...</p>
+        )}
       </main>
     );
   }
