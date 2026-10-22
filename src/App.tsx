@@ -222,7 +222,7 @@ function App() {
 
     // Validate the decimal input before converting it to a floating-point number.
     // Zcash amounts are exact to eight decimal places (one zatoshi).
-    if (!/^(?:\\d+)(?:\\.\\d{1,8})?$/.test(sendAmount.trim())) {
+    if (!/^(?:\d+)(?:\.\d{1,8})?$/.test(sendAmount.trim())) {
       setMessage("Enter a ZEC amount with no more than 8 decimal places.");
       return;
     }
