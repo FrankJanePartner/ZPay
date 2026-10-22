@@ -170,6 +170,34 @@ mod sqlite_history_tests {
     use rusqlite::Connection;
 
     #[test]
+    fn reads_sent_transaction_and_memo_from_sqlite_views() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-history-sent-{}.sqlite", std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(
+            "CREATE TABLE tx (txid BLOB, account_balance_delta INTEGER,
+             fee_paid INTEGER, mined_height INTEGER, block_time INTEGER,
+             expired_unmined INTEGER, pool_crossing_value INTEGER);
+             CREATE VIEW v_transactions AS SELECT * FROM tx;
+             CREATE TABLE outputs (txid BLOB, memo BLOB);
+             CREATE VIEW v_tx_outputs AS SELECT * FROM outputs;
+             INSERT INTO tx VALUES (X'01020304', -110, 10, 42, 1700000000, 0, NULL);
+             INSERT INTO outputs VALUES (X'01020304', X'48656C6C6F');"
+        ).unwrap();
+        drop(db);
+        let entries = read_transaction_history(&path).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].direction, TransactionDirection::Sent);
+        assert_eq!(entries[0].amount_zatoshis, 100);
+        assert_eq!(entries[0].fee_zatoshis, Some(10));
+        assert_eq!(entries[0].memos, vec!["Hello"]);
+        assert_eq!(entries[0].status, TransactionStatus::Confirmed);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn missing_schema_returns_readable_error() {
         let path = std::env::temp_dir().join(format!(
             "zoerd-history-schema-{}.sqlite", std::process::id()
