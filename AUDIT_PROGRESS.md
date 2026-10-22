@@ -53,3 +53,28 @@ Always preserve the 16 fixed milestone titles, numbering and order. Report **new
 **Unverified:** Live wallet memo broadcast, sent/received transaction history and fee display, desktop UI end-to-end behavior. Rust memo tests have not yet passed at the time of this checkpoint.
 
 **Next checkpoint exit criteria:** Rust memo tests pass, then a reproducible memo-broadcast failure is identified and fixed or documented with precise blocker.
+
+
+## Checkpoint 02: transaction send safety and memo restrictions (2026-10-22)
+
+**Scope:** Milestones 03, 04, 07, 09. All 16 milestone names and their ordering remain unchanged.
+
+**Code committed to the audit branch:**
+- `8589c3f`: Correct desktop ZEC amount precision validation regex.
+- `aab592a`: Warn against immediate retries after indeterminate broadcast failures.
+- `c57d83b`: Distinguish wallet signing/proposal failures from broadcast errors.
+- `80da6a9`: Guard desktop send handler against overlapping wallet operations.
+- `a4fe251`: Do not report broadcast success if no transaction IDs are returned.
+- `ca68821`: Reject transparent-address memos in the desktop interface.
+- `d8ee03a`: Enforce transparent-address memo restriction in both Rust send paths and add regression tests.
+- `ffdcf57`: Correctly describe lightwalletd RPC errors as indeterminate broadcast outcomes.
+- `43be304`: Recognize updated indeterminate-broadcast error in desktop UI.
+
+**CI evidence checked:**
+- `d8ee03a`: frontend, backend and wallet-service workflows successful; Rust workflow still in progress at check time.
+- `43be304`: frontend, backend and wallet-service workflows successful; Rust workflow still in progress at check time.
+- Newer Rust tests and any live wallet transaction behavior remain unverified. Do not mark them passed.
+
+**Critical open items:** Build wallet transaction-history read model from supported Zcash client APIs, surface sent/received records with fees and memos in Tauri UI, reproduce and resolve shielded memo broadcasting, run real wallet end-to-end tests. Do not use undocumented SQLite internals as a shortcut, and do not expose recovery phrases or keys.
+
+**Safety:** Draft PR #5 remains unmerged. Personal main and ZOERDHUB company fork unchanged.
