@@ -45,10 +45,10 @@ Always preserve the 16 fixed milestone titles, numbering and order. Report **new
 - `4022181`: Three Rust memo parsing tests for Unicode and 512-byte boundary handling.
 
 **Verified on commit `4022181`:**
-- Backend run #154: success.
-- Frontend run #14: success.
+- Backend run #156: success.
+- Frontend run #16: success.
 - Wallet service run #49: success.
-- Rust run #10: still in progress at checkpoint; no Rust pass claimed.
+- Rust run #12: still in progress at checkpoint; no Rust pass claimed.
 
 **Unverified:** Live wallet memo broadcast, sent/received transaction history and fee display, desktop UI end-to-end behavior. Rust memo tests have not yet passed at the time of this checkpoint.
 
