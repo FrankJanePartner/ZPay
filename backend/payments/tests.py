@@ -220,6 +220,24 @@ class PaymentAPITests(APITestCase):
         self.assertEqual(response.data["received_zatoshis"], "1000")
         self.assertLessEqual(len(queries), 6)
 
+    def test_payment_list_query_count_is_bounded_at_scale(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        PaymentRequest.objects.bulk_create([
+            PaymentRequest(
+                owner=self.user, idempotency_key=f"scale-list-{index}",
+                reference=f"scale-list-{index}", amount_zatoshis=1000,
+                ttl_seconds=1800,
+            )
+            for index in range(100)
+        ])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 100)
+        self.assertLessEqual(len(queries), 5)
+
     def test_cross_account_detail_and_list_are_isolated(self):
         payment = PaymentRequest.objects.create(
             owner=self.other,
