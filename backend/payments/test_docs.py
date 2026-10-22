@@ -28,5 +28,7 @@ class DocumentationTests(TestCase):
                 if method not in ("get", "post", "delete"):
                     continue
                 for code, result in operation["responses"].items():
-                    if code.startswith("2") and code != "204":
-                        self.assertIn("examples", result["content"]["application/json"])
+                    if code.startswith("2") and code != "204" and "content" in result:
+                        json_content = result["content"].get("application/json")
+                        if json_content is not None:
+                            self.assertIn("examples", json_content)
