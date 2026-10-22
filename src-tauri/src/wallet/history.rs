@@ -132,7 +132,7 @@ fn display_memo(bytes: &[u8]) -> Option<String> {
     if bytes.is_empty() || bytes[0] == 0xf6 {
         return None;
     }
-    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches('\\0').trim_end();
+    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches(char::from(0)).trim_end();
     if text.is_empty() { None } else { Some(text.to_owned()) }
 }
 
