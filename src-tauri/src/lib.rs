@@ -199,7 +199,12 @@ async fn restore_wallet(
     {
         Ok(address) => Ok(address),
         Err(error) => {
-            let _ = remove_recovery_phrase(&app);
+            // Restoration can fail after creating the wallet database.
+            // Keep its recovery secret in secure storage in that case;
+            // deleting it could leave an existing wallet inaccessible.
+            if !path.exists() {
+                let _ = remove_recovery_phrase(&app);
+            }
             Err(error)
         }
     }
@@ -239,7 +244,12 @@ async fn restore_wallet_at_birthday(
     {
         Ok(address) => Ok(address),
         Err(error) => {
-            let _ = remove_recovery_phrase(&app);
+            // Restoration can fail after creating the wallet database.
+            // Keep its recovery secret in secure storage in that case;
+            // deleting it could leave an existing wallet inaccessible.
+            if !path.exists() {
+                let _ = remove_recovery_phrase(&app);
+            }
             Err(error)
         }
     }
