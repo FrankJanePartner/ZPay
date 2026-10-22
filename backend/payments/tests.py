@@ -171,6 +171,7 @@ class PaymentAPITests(APITestCase):
         self.assertLessEqual(len(queries), 5)
 
     def test_payment_detail_query_count_with_deposits(self):
+        # Regression baseline: detail reads stay bounded as deposits grow.
         from .models import Deposit
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
