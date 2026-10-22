@@ -222,22 +222,24 @@ function App() {
     if (busy) return;
 
     const recipient = sendRecipient.trim();
-    const amount = Number(sendAmount);
+    const amountText = sendAmount.trim();
 
     if (!recipient) {
       setMessage("Enter a recipient Zcash address.");
       return;
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter a valid ZEC amount greater than zero.");
+    // Parse the decimal string exactly. A floating-point conversion can
+    // silently change a ZEC payment by one or more zatoshis.
+    if (!/^(?:\d+)(?:\.\d{1,8})?$/.test(amountText)) {
+      setMessage("Enter a ZEC amount with no more than 8 decimal places.");
       return;
     }
-
-    // Validate the decimal input before converting it to a floating-point number.
-    // Zcash amounts are exact to eight decimal places (one zatoshi).
-    if (!/^(?:\d+)(?:\.\d{1,8})?$/.test(sendAmount.trim())) {
-      setMessage("Enter a ZEC amount with no more than 8 decimal places.");
+    const [whole, fractional = ""] = amountText.split(".");
+    const amountZatoshis = BigInt(whole) * 100_000_000n +
+      BigInt(fractional.padEnd(8, "0"));
+    if (amountZatoshis <= 0n || amountZatoshis > 2_100_000_000_000_000n) {
+      setMessage("Enter a valid ZEC amount within the network monetary range.");
       return;
     }
 
@@ -271,7 +273,7 @@ function App() {
     try {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
-        amountZec: amount,
+        amountZatoshis: Number(amountZatoshis),
         memo: sendMemo || null,
       });
 
