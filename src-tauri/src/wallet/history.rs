@@ -77,6 +77,7 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     ).map_err(|e| format!("Unable to read wallet history: {e}"))?;
+    // Reject incompatible databases before querying transaction views.
     let mut statement = connection.prepare(
         "SELECT hex(txid), SUM(account_balance_delta), MAX(fee_paid),          MAX(mined_height), MAX(block_time), MAX(expired_unmined), MAX(pool_crossing_value)          FROM v_transactions GROUP BY txid          ORDER BY MAX(COALESCE(mined_height, 2147483647)) DESC LIMIT 200"
     ).map_err(|e| format!("Unable to query wallet history: {e}"))?;
