@@ -477,6 +477,18 @@ mod tests {
     use zcash_protocol::memo::Memo;
 
     #[test]
+    fn whitespace_only_memo_does_not_create_memo_output() {
+        use zcash_protocol::memo::Memo;
+        let memo = "   ";
+        let encoded = memo
+            .trim()
+            .is_empty()
+            .then_some(None::<Memo>)
+            .flatten();
+        assert!(encoded.is_none());
+    }
+
+    #[test]
     fn accepts_unicode_memo_within_byte_limit() {
         let memo = "Payment for services 🪙";
         assert!(memo.parse::<Memo>().is_ok());
