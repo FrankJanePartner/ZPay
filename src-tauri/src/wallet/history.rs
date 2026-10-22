@@ -197,6 +197,8 @@ mod sqlite_history_tests {
         assert_eq!(sent.fee_zatoshis, Some(10));
         assert_eq!(sent.memos, vec!["Hello"]);
         assert_eq!(sent.status, TransactionStatus::Confirmed);
+        assert_eq!(sent.mined_height, Some(42));
+        assert_eq!(sent.block_time, Some(1_700_000_000));
         let received = entries.iter().find(|entry| entry.txid == "05060708").unwrap();
         assert_eq!(received.direction, TransactionDirection::Received);
         assert_eq!(received.amount_zatoshis, 250);
