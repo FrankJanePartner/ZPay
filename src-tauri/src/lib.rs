@@ -292,7 +292,7 @@ async fn send_zec(
     app: AppHandle,
     state: State<'_, AppState>,
     recipient_address: String,
-    amount_zec: f64,
+    amount_zatoshis: u64,
     memo: Option<String>,
 ) -> Result<Vec<String>, String> {
     let path = state.wallet_db_path.clone();
@@ -307,12 +307,12 @@ async fn send_zec(
     let recovery_phrase =
         load_recovery_phrase(&app)?;
 
-    wallet::send::send_zec(
+    wallet::send::send_zatoshis(
         path,
         &endpoint,
         &recovery_phrase,
         &recipient_address,
-        amount_zec,
+        amount_zatoshis,
         memo.as_deref().filter(|value| !value.is_empty()),
     )
     .await
