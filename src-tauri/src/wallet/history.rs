@@ -163,3 +163,21 @@ mod memo_display_tests {
         assert_eq!(display_memo(&[0xff, 0]), None);
     }
 }
+
+#[cfg(test)]
+mod sqlite_history_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn missing_schema_returns_readable_error() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-history-schema-{}.sqlite", std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        Connection::open(&path).unwrap();
+        let result = read_transaction_history(&path);
+        assert!(result.unwrap_err().contains("Unable to query wallet history"));
+        let _ = std::fs::remove_file(&path);
+    }
+}
