@@ -191,6 +191,17 @@ mod restore_secret_tests {
     }
 
     #[test]
+    fn preserve_secret_when_wallet_path_is_a_directory() {
+        let directory = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-directory",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).expect("create temporary directory");
+        assert!(!should_remove_restore_secret(&directory));
+        std::fs::remove_dir(directory).expect("remove temporary directory");
+    }
+
+    #[test]
     fn remove_secret_if_wallet_database_was_never_created() {
         let file = std::env::temp_dir().join(format!(
             "zoerdwallet-restore-test-{}-{}",
