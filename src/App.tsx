@@ -252,6 +252,13 @@ function App() {
       return;
     }
 
+    // Transparent Zcash addresses cannot receive transaction memos.
+    // Reject this combination before requesting a signed transaction.
+    if (sendMemo.length > 0 && /^(?:t1|t3)/.test(recipient)) {
+      setMessage("This is a transparent Zcash address. Memos require a shielded recipient address.");
+      return;
+    }
+
     if (new TextEncoder().encode(sendMemo).length > 512) {
       setMessage("Memo must not exceed 512 bytes.");
       return;
