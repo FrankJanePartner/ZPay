@@ -184,16 +184,23 @@ mod sqlite_history_tests {
              CREATE TABLE outputs (txid BLOB, memo BLOB);
              CREATE VIEW v_tx_outputs AS SELECT * FROM outputs;
              INSERT INTO tx VALUES (X'01020304', -110, 10, 42, 1700000000, 0, NULL);
-             INSERT INTO outputs VALUES (X'01020304', X'48656C6C6F');"
+             INSERT INTO outputs VALUES (X'01020304', X'48656C6C6F');
+             INSERT INTO tx VALUES (X'05060708', 250, NULL, NULL, NULL, 0, NULL);
+             INSERT INTO outputs VALUES (X'05060708', X'5468616E6B73');"
         ).unwrap();
         drop(db);
         let entries = read_transaction_history(&path).unwrap();
-        assert_eq!(entries.len(), 1);
+        assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].direction, TransactionDirection::Sent);
         assert_eq!(entries[0].amount_zatoshis, 100);
         assert_eq!(entries[0].fee_zatoshis, Some(10));
         assert_eq!(entries[0].memos, vec!["Hello"]);
         assert_eq!(entries[0].status, TransactionStatus::Confirmed);
+        let received = entries.iter().find(|entry| entry.txid == "05060708").unwrap();
+        assert_eq!(received.direction, TransactionDirection::Received);
+        assert_eq!(received.amount_zatoshis, 250);
+        assert_eq!(received.status, TransactionStatus::Pending);
+        assert_eq!(received.memos, vec!["Thanks"]);
         let _ = std::fs::remove_file(&path);
     }
 
