@@ -370,6 +370,15 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
     Ok(broadcast_txids)
 }
 
+fn validate_memo_recipient(recipient_address: &str, memo: Option<&str>) -> Result<(), String> {
+    if memo.is_some_and(|value| !value.is_empty())
+        && (recipient_address.starts_with("t1") || recipient_address.starts_with("t3"))
+    {
+        return Err("Transparent Zcash addresses cannot receive memos. Use a shielded recipient.".to_string());
+    }
+    Ok(())
+}
+
 pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
     wallet_path: P,
     lightwalletd_endpoint: &str,
@@ -378,6 +387,8 @@ pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
     amount_zatoshis: u64,
     memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
+    validate_memo_recipient(recipient_address.trim(), memo)?;
+
     let recipient = recipient_address
         .trim()
         .parse::<ZcashAddress>()
@@ -409,6 +420,8 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
     amount_zec: f64,
     memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
+    validate_memo_recipient(recipient_address.trim(), memo)?;
+
     let recipient =
         recipient_address
             .trim()
@@ -443,7 +456,21 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
 
 #[cfg(test)]
 mod tests {
-    use super::zatoshis_from_zec;
+    use super::{validate_memo_recipient, zatoshis_from_zec};
+
+    #[test]
+    fn transparent_memo_is_rejected() {
+        assert!(validate_memo_recipient("t1example", Some("memo")).is_err());
+        assert!(validate_memo_recipient("t3example", Some("memo")).is_err());
+    }
+
+    #[test]
+    fn shielded_memo_is_not_blocked_by_transparent_guard() {
+        assert!(validate_memo_recipient("u1example", Some("memo")).is_ok());
+        assert!(validate_memo_recipient("zs1example", Some("memo")).is_ok());
+        assert!(validate_memo_recipient("t1example", None).is_ok());
+    }
+
     use zcash_protocol::memo::Memo;
 
     #[test]
