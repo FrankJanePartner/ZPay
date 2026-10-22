@@ -33,3 +33,23 @@ Updated: 2026-10-22. Branch: `audit/security-hardening-2026-10`. Draft PR: #5.
 ## Reporting rule
 
 Always preserve the 16 fixed milestone titles, numbering and order. Report **new commits, new test results, and remaining work** separately from milestone completion. Never claim a workflow passed before its conclusion is successful.
+
+## Checkpoint 01: wallet opening and memo validation (2026-10-22)
+
+**Scope:** Milestones 03, 07, 09. No changes to the 16 milestone definitions.
+
+**Delivered code:**
+- `0dae4ec`: Rust command checks whether wallet database file exists independently of opening the wallet.
+- `4c7db65`: Desktop shows a retry/error state when an existing wallet cannot be opened, instead of the new-wallet creation screen.
+- `d6e309e`: Four Rust amount validation regression tests for invalid, overprecise, valid and out-of-range values.
+- `4022181`: Three Rust memo parsing tests for Unicode and 512-byte boundary handling.
+
+**Verified on commit `4022181`:**
+- Backend run #154: success.
+- Frontend run #14: success.
+- Wallet service run #49: success.
+- Rust run #10: still in progress at checkpoint; no Rust pass claimed.
+
+**Unverified:** Live wallet memo broadcast, sent/received transaction history and fee display, desktop UI end-to-end behavior. Rust memo tests have not yet passed at the time of this checkpoint.
+
+**Next checkpoint exit criteria:** Rust memo tests pass, then a reproducible memo-broadcast failure is identified and fixed or documented with precise blocker.
