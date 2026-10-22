@@ -191,11 +191,12 @@ mod sqlite_history_tests {
         drop(db);
         let entries = read_transaction_history(&path).unwrap();
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].direction, TransactionDirection::Sent);
-        assert_eq!(entries[0].amount_zatoshis, 100);
-        assert_eq!(entries[0].fee_zatoshis, Some(10));
-        assert_eq!(entries[0].memos, vec!["Hello"]);
-        assert_eq!(entries[0].status, TransactionStatus::Confirmed);
+        let sent = entries.iter().find(|entry| entry.txid == "01020304").unwrap();
+        assert_eq!(sent.direction, TransactionDirection::Sent);
+        assert_eq!(sent.amount_zatoshis, 100);
+        assert_eq!(sent.fee_zatoshis, Some(10));
+        assert_eq!(sent.memos, vec!["Hello"]);
+        assert_eq!(sent.status, TransactionStatus::Confirmed);
         let received = entries.iter().find(|entry| entry.txid == "05060708").unwrap();
         assert_eq!(received.direction, TransactionDirection::Received);
         assert_eq!(received.amount_zatoshis, 250);
