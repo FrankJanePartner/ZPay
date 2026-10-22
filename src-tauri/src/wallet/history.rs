@@ -138,7 +138,10 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
 }
 
 fn display_memo(bytes: &[u8]) -> Option<String> {
-    if bytes.is_empty() || bytes[0] == 0xf6 {
+    // ZIP-302: 0x00..0xf4 are text memos, 0xf5 is a future-use memo,
+    // and 0xf6 is the canonical empty memo. Never interpret future-use
+    // or other non-text memo payloads as a user-written message.
+    if bytes.is_empty() || bytes[0] > 0xf4 {
         return None;
     }
     let text = std::str::from_utf8(bytes).ok()?.trim_end_matches(char::from(0)).trim_end();
@@ -153,6 +156,9 @@ mod memo_display_tests {
     fn reads_unicode_memos_and_ignores_empty() {
         assert_eq!(display_memo("Payment ✓".as_bytes()), Some("Payment ✓".to_owned()));
         assert_eq!(display_memo(&[0xf6, 0, 0]), None);
+        assert_eq!(display_memo(&[0xf5, 0, 0]), None);
+        assert_eq!(display_memo(&[0xf7, 0, 0]), None);
+        assert_eq!(display_memo(&[0, 0, 0]), None);
         assert_eq!(display_memo(&[0xff, 0]), None);
     }
 }
