@@ -168,6 +168,40 @@ fn open_wallet(
     )
 }
 
+// Never discard the recovery secret if a failed restoration left a wallet file.
+// The file may already contain an initialized account and must remain recoverable.
+fn should_remove_restore_secret(wallet_db_path: &std::path::Path) -> bool {
+    !wallet_db_path.exists()
+}
+
+#[cfg(test)]
+mod restore_secret_tests {
+    use super::should_remove_restore_secret;
+
+    #[test]
+    fn preserve_secret_when_wallet_database_exists() {
+        let file = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-{}",
+            std::process::id(),
+            "existing-wallet"
+        ));
+        std::fs::write(&file, b"wallet").expect("create temporary wallet file");
+        assert!(!should_remove_restore_secret(&file));
+        std::fs::remove_file(file).expect("remove temporary wallet file");
+    }
+
+    #[test]
+    fn remove_secret_if_wallet_database_was_never_created() {
+        let file = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-{}",
+            std::process::id(),
+            "missing-wallet"
+        ));
+        let _ = std::fs::remove_file(&file);
+        assert!(should_remove_restore_secret(&file));
+    }
+}
+
 #[tauri::command]
 async fn restore_wallet(
     app: AppHandle,
@@ -202,7 +236,7 @@ async fn restore_wallet(
             // Restoration can fail after creating the wallet database.
             // Keep its recovery secret in secure storage in that case;
             // deleting it could leave an existing wallet inaccessible.
-            if !path.exists() {
+            if should_remove_restore_secret(&path) {
                 let _ = remove_recovery_phrase(&app);
             }
             Err(error)
@@ -247,7 +281,7 @@ async fn restore_wallet_at_birthday(
             // Restoration can fail after creating the wallet database.
             // Keep its recovery secret in secure storage in that case;
             // deleting it could leave an existing wallet inaccessible.
-            if !path.exists() {
+            if should_remove_restore_secret(&path) {
                 let _ = remove_recovery_phrase(&app);
             }
             Err(error)
