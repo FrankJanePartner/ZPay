@@ -191,7 +191,7 @@ async fn restore_wallet(
     )?;
 
     match restore_wallet_from_phrase(
-        path,
+        path.clone(),
         &endpoint,
         phrase,
     )
@@ -235,7 +235,7 @@ async fn restore_wallet_at_birthday(
     )?;
 
     match restore_wallet_from_phrase_at_birthday(
-        path,
+        path.clone(),
         &endpoint,
         phrase,
         birthday_height,
