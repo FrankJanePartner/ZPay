@@ -347,7 +347,7 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
             .await
             .map_err(|e| {
                 format!(
-                    "lightwalletd rejected transaction RPC {txid}: {e}"
+                    "Broadcast outcome unknown for transaction {txid}: lightwalletd RPC failed: {e}. Check network or wallet history before retrying."
                 )
             })?
             .into_inner();
