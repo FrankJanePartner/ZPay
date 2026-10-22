@@ -207,6 +207,9 @@ function App() {
     if (/Zcash network rejected transaction/i.test(raw)) {
       return "The Zcash network rejected the transaction. Check your wallet status and recipient before trying again.";
     }
+    if (/failed to build\/sign transaction|failed to create transaction proposal|Sapling proving parameters were not found/i.test(raw)) {
+      return "The wallet could not prepare or sign the payment. Check wallet synchronization, available funds and proving parameters before trying again.";
+    }
     if (/insufficient|not enough|balance too low|insufficientfunds/i.test(raw)) return "Insufficient funds. Please reduce the amount to cover the payment and network fee.";
     if (/invalid.*address|unsupported.*address/i.test(raw)) return "The recipient address is invalid or unsupported.";
     if (/memo|shielded|transparent/i.test(raw)) return "The memo could not be sent. Zcash memos require a supported shielded recipient.";
