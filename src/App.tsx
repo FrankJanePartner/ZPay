@@ -218,6 +218,9 @@ function App() {
   }
 
   async function sendZec() {
+    // Avoid duplicate submissions while another wallet operation is in progress.
+    if (busy) return;
+
     const recipient = sendRecipient.trim();
     const amount = Number(sendAmount);
 
