@@ -383,17 +383,22 @@ class RevokeKey(APIView):
         return Response(status=204)
 
 
+def payment_queryset_with_received_totals(owner):
+    """Use the same SQL aggregation for payment list and detail views."""
+    return PaymentRequest.objects.filter(owner=owner).annotate(
+        received_total=Sum(
+            "deposits__amount_zatoshis",
+            filter=Q(deposits__active=True),
+        )
+    )
+
+
 class Payments(generics.ListCreateAPIView):
     serializer_class = PaymentOutput
 
     def get_queryset(self):
-        return PaymentRequest.objects.filter(
-            owner=self.request.user
-        ).annotate(
-            received_total=Sum(
-                "deposits__amount_zatoshis",
-                filter=Q(deposits__active=True),
-            )
+        return payment_queryset_with_received_totals(
+            self.request.user
         ).order_by("-created_at", "-id")
 
     def create(self, request, *args, **kwargs):
@@ -461,9 +466,7 @@ class PaymentDetail(generics.RetrieveAPIView):
     serializer_class = PaymentOutput
 
     def get_queryset(self):
-        return PaymentRequest.objects.filter(
-            owner=self.request.user
-        )
+        return payment_queryset_with_received_totals(self.request.user)
 
 
 class Sends(generics.ListCreateAPIView):
