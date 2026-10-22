@@ -407,6 +407,14 @@ class PaymentAPITests(APITestCase):
         )
         send.assert_called_once()
 
+    @patch("payments.views.send_zec", side_effect=WalletUnavailable())
+    def test_malformed_wallet_response_does_not_confirm_broadcast(self, send):
+        response = self.create_send(key="malformed-wallet-response")
+        self.assertEqual(response.status_code, 503)
+        record = SendRequest.objects.get(idempotency_key="malformed-wallet-response")
+        self.assertNotEqual(record.status, "broadcast")
+        self.assertEqual(record.txids, [])
+
     @patch("payments.views.send_zec")
     def test_broadcast_send_is_not_sent_twice(self, send):
         send.return_value = ["a" * 64]
