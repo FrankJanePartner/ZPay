@@ -11,6 +11,17 @@ type WalletStatus = {
   address_count: number;
 };
 
+type TransactionHistoryEntry = {
+  txid: string;
+  direction: "sent" | "received" | "internal";
+  status: "confirmed" | "pending" | "expired";
+  amount_zatoshis: number;
+  fee_zatoshis: number | null;
+  mined_height: number | null;
+  block_time: number | null;
+  memos: string[];
+};
+
 type CreatedWallet = {
   recovery_phrase: string;
   address: string;
@@ -42,6 +53,9 @@ function App() {
   const [sendAmount, setSendAmount] = useState("");
   const [sendMemo, setSendMemo] = useState("");
   const [sendTxids, setSendTxids] = useState<string[]>([]);
+  const [history, setHistory] = useState<TransactionHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [secureSecretAvailable, setSecureSecretAvailable] =
     useState<boolean | null>(null);
 
@@ -66,6 +80,7 @@ function App() {
         invoke<string[]>("get_addresses"),
       ]);
 
+      void refreshHistory();
       setStatus(walletStatus);
       setAddresses(
         walletAddresses.length > 0
@@ -80,6 +95,21 @@ function App() {
       setWalletExists(null);
       setStatus(null);
       setAddresses([]);
+    }
+  }
+
+  async function refreshHistory() {
+    setHistoryLoading(true);
+    try {
+      const entries = await invoke<TransactionHistoryEntry[]>("get_transaction_history");
+      setHistory(entries);
+      setHistoryError(null);
+    } catch {
+      // Do not imply that missing history is proof that no payments exist.
+      setHistory([]);
+      setHistoryError("Transaction history is unavailable in this build. Do not resend a payment based on this screen.");
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -518,6 +548,37 @@ function App() {
 
             {sendTxids.map((txid) => (
               <code key={txid}>{txid}</code>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="sectionHeader">
+          <div>
+            <h2>Transaction history</h2>
+            <p className="muted">Sent and received Zcash activity</p>
+          </div>
+          <button className="secondary" onClick={refreshHistory} disabled={historyLoading}>
+            {historyLoading ? "Loading..." : "Refresh history"}
+          </button>
+        </div>
+        {historyError ? (
+          <p className="warning" role="alert">{historyError}</p>
+        ) : history.length === 0 ? (
+          <p className="muted">{historyLoading ? "Loading transactions..." : "No recorded transactions returned."}</p>
+        ) : (
+          <div className="addresses">
+            {history.map((tx) => (
+              <div className="address" key={tx.txid}>
+                <strong>{tx.direction.toUpperCase()} · {tx.status}</strong>
+                <span>{zec(Math.abs(tx.amount_zatoshis))} ZEC</span>
+                <span>Fee: {tx.fee_zatoshis == null ? "Unavailable" : `${zec(tx.fee_zatoshis)} ZEC`}</span>
+                <span>{tx.block_time == null ? "Time unavailable" : new Date(tx.block_time * 1000).toLocaleString()}</span>
+                <span>{tx.mined_height == null ? "Not mined" : `Block ${tx.mined_height}`}</span>
+                {tx.memos.map((memo, index) => <p key={index}>{memo}</p>)}
+                <code>{tx.txid}</code>
+              </div>
             ))}
           </div>
         )}
