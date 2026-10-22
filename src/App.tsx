@@ -199,6 +199,14 @@ function App() {
 
   function readableSendError(error: unknown) {
     const raw = String(error);
+    // A transport failure after signing does not prove the network rejected the transaction.
+    // Do not invite an immediate retry that could produce a duplicate payment.
+    if (/lightwalletd rejected transaction RPC|failed to connect to lightwalletd for broadcast|signed transaction .* was not found/i.test(raw)) {
+      return "The transaction broadcast could not be confirmed. Do not send again until you have checked your wallet and the network for the transaction.";
+    }
+    if (/Zcash network rejected transaction/i.test(raw)) {
+      return "The Zcash network rejected the transaction. Check your wallet status and recipient before trying again.";
+    }
     if (/insufficient|not enough|balance too low|insufficientfunds/i.test(raw)) return "Insufficient funds. Please reduce the amount to cover the payment and network fee.";
     if (/invalid.*address|unsupported.*address/i.test(raw)) return "The recipient address is invalid or unsupported.";
     if (/memo|shielded|transparent/i.test(raw)) return "The memo could not be sent. Zcash memos require a supported shielded recipient.";
