@@ -1,22 +1,9 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import { formatZec as zec } from "./zec-format";
 
 import type { WalletStatus, TransactionHistoryEntry, CreatedWallet } from "./wallet-types";
-
-const ZATOSHIS_PER_ZEC = 100_000_000;
-
-function zec(zatoshis: number) {
-  // Zcash values are integer zatoshis. Avoid binary floating-point display
-  // rounding, especially when balances are large or fees are tiny.
-  if (!Number.isSafeInteger(zatoshis)) return "Amount unavailable";
-  const value = BigInt(zatoshis);
-  const absolute = value < 0n ? -value : value;
-  const whole = absolute / BigInt(ZATOSHIS_PER_ZEC);
-  const fractional = (absolute % BigInt(ZATOSHIS_PER_ZEC))
-    .toString().padStart(8, "0");
-  return `${value < 0n ? "-" : ""}${whole}.${fractional}`;
-}
 
 function App() {
   const [walletExists, setWalletExists] = useState<boolean | null>(null);
