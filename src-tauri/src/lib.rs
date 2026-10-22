@@ -434,6 +434,7 @@ pub fn run() {
                 restore_wallet_at_birthday,
                 sync_wallet,
                 wallet_status,
+                get_transaction_history,
                 get_addresses,
                 create_address,
                 send_zec,
