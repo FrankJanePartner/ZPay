@@ -440,3 +440,31 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
     )
     .await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::zatoshis_from_zec;
+
+    #[test]
+    fn rejects_non_finite_or_non_positive_amounts() {
+        for amount in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -1.0] {
+            assert!(zatoshis_from_zec(amount).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_fractional_zatoshi_amounts() {
+        assert!(zatoshis_from_zec(0.000000001).is_err());
+    }
+
+    #[test]
+    fn accepts_exact_one_zatoshi_and_one_zec() {
+        assert_eq!(zatoshis_from_zec(0.00000001).unwrap().into_u64(), 1);
+        assert_eq!(zatoshis_from_zec(1.0).unwrap().into_u64(), 100_000_000);
+    }
+
+    #[test]
+    fn rejects_amounts_above_the_monetary_limit() {
+        assert!(zatoshis_from_zec(21_000_001.0).is_err());
+    }
+}
