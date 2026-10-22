@@ -155,6 +155,11 @@ async fn create_wallet(
 }
 
 #[tauri::command]
+fn wallet_file_exists(state: State<'_, AppState>) -> bool {
+    state.wallet_db_path.exists()
+}
+
+#[tauri::command]
 fn open_wallet(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
@@ -362,6 +367,7 @@ pub fn run() {
                 secure_secret_available,
                 create_wallet,
                 open_wallet,
+                wallet_file_exists,
                 restore_wallet,
                 restore_wallet_at_birthday,
                 sync_wallet,
