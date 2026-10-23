@@ -280,7 +280,7 @@ function App() {
     try {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
-        amountZatoshis: Number(amountZatoshis),
+        amountZatoshis: Number(amountZatoshis), // <= 2.1e15, within JS safe-integer range
         memo: sendMemo.trim() || null,
       });
 
