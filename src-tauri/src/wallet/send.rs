@@ -374,7 +374,7 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
 }
 
 fn validate_memo_recipient(recipient_address: &str, memo: Option<&str>) -> Result<(), String> {
-    if memo.is_some_and(|value| !value.is_empty())
+    if memo.is_some_and(|value| !value.trim().is_empty())
         && (recipient_address.starts_with("t1") || recipient_address.starts_with("t3"))
     {
         return Err("Transparent Zcash addresses cannot receive memos. Use a shielded recipient.".to_string());
@@ -465,6 +465,12 @@ mod tests {
     fn transparent_memo_is_rejected() {
         assert!(validate_memo_recipient("t1example", Some("memo")).is_err());
         assert!(validate_memo_recipient("t3example", Some("memo")).is_err());
+    }
+
+    #[test]
+    fn whitespace_only_memo_is_allowed_for_transparent_address() {
+        assert!(validate_memo_recipient("t1example", Some("  \t  ")).is_ok());
+        assert!(validate_memo_recipient("t3example", Some("\n")).is_ok());
     }
 
     #[test]
