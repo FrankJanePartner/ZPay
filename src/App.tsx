@@ -268,7 +268,7 @@ function App() {
       return;
     }
 
-    if (new TextEncoder().encode(sendMemo).length > 512) {
+    if (new TextEncoder().encode(sendMemo.trim().length > 0 ? sendMemo : "").length > 512) {
       setMessage("Memo must not exceed 512 bytes.");
       return;
     }
