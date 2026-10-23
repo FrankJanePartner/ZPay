@@ -217,6 +217,28 @@ mod sqlite_history_tests {
     }
 
     #[test]
+    fn incompatible_history_schema_preserves_wallet_bytes() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-history-incompatible-{}.sqlite", std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(
+            "CREATE TABLE tx (txid BLOB, account_balance_delta INTEGER);
+             CREATE VIEW v_transactions AS SELECT * FROM tx;
+             CREATE TABLE outputs (txid BLOB, memo BLOB);
+             CREATE VIEW v_tx_outputs AS SELECT * FROM outputs;
+             INSERT INTO tx VALUES (X'01020304', -100);"
+        ).unwrap();
+        drop(db);
+        let before = std::fs::read(&path).unwrap();
+        let error = read_transaction_history(&path).unwrap_err();
+        assert!(error.contains("Wallet history schema is incompatible"));
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn missing_schema_returns_readable_error() {
         let path = std::env::temp_dir().join(format!(
             "zoerd-history-schema-{}.sqlite", std::process::id()
