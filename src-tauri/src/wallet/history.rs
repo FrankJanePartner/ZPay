@@ -127,7 +127,7 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
     // Memos are binary ZIP-302 values. The empty memo (0xf6 followed by
     // zero padding) must not be rendered as a user-written message.
     let mut memo_query = connection.prepare(
-        "SELECT memo FROM v_tx_outputs WHERE hex(txid) = ?1 AND memo IS NOT NULL"
+        "SELECT memo FROM v_tx_outputs WHERE hex(txid) = ?1 AND memo IS NOT NULL LIMIT 100"
     ).map_err(|e| format!("Unable to query transaction memos: {e}"))?;
     for entry in &mut entries {
         let values = memo_query.query_map([entry.txid.to_uppercase()], |row| {
