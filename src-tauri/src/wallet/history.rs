@@ -145,7 +145,7 @@ fn display_memo(bytes: &[u8]) -> Option<String> {
     if bytes.is_empty() || bytes[0] > 0xf4 {
         return None;
     }
-    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches(char::from(0)).trim_end();
+    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches(char::from(0));
     if text.is_empty() { None } else { Some(text.to_owned()) }
 }
 
@@ -156,6 +156,8 @@ mod memo_display_tests {
     #[test]
     fn reads_unicode_memos_and_ignores_empty() {
         assert_eq!(display_memo("Payment ✓".as_bytes()), Some("Payment ✓".to_owned()));
+        assert_eq!(display_memo(b"Invoice paid  "), Some("Invoice paid  ".to_owned()));
+        assert_eq!(display_memo(b"Invoice paid  \0\0"), Some("Invoice paid  ".to_owned()));
         assert_eq!(display_memo(&[0xf6, 0, 0]), None);
         assert_eq!(display_memo(&[0xf5, 0, 0]), None);
         assert_eq!(display_memo(&[0xf7, 0, 0]), None);
