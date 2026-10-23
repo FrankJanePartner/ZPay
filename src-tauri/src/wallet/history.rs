@@ -217,6 +217,17 @@ mod sqlite_history_tests {
     }
 
     #[test]
+    fn history_read_does_not_create_missing_database() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-history-missing-{}.sqlite", std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let error = read_transaction_history(&path).unwrap_err();
+        assert!(error.contains("Wallet database is not available"));
+        assert!(!path.exists(), "History read must not create a wallet file");
+    }
+
+    #[test]
     fn incompatible_history_schema_preserves_wallet_bytes() {
         let path = std::env::temp_dir().join(format!(
             "zoerd-history-incompatible-{}.sqlite", std::process::id()
