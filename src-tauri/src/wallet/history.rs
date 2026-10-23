@@ -77,6 +77,13 @@ pub fn read_transaction_history(path: &std::path::Path) -> Result<Vec<Transactio
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     ).map_err(|e| format!("Unable to read wallet history: {e}"))?;
+    // Refuse a database that does not expose the expected history columns.
+    // A partial schema must not silently produce misleading balances or fees.
+    let schema_ok = connection.prepare("SELECT txid, account_balance_delta, fee_paid, mined_height, block_time, expired_unmined, pool_crossing_value FROM v_transactions LIMIT 0").is_ok()
+        && connection.prepare("SELECT txid, memo FROM v_tx_outputs LIMIT 0").is_ok();
+    if !schema_ok {
+        return Err("Wallet history schema is incompatible with this app version. Update the wallet or contact support; no wallet data was changed.".to_owned());
+    }
     // Reject incompatible databases before querying transaction views.
     let mut statement = connection.prepare(
         "SELECT hex(txid), SUM(account_balance_delta), MAX(fee_paid),          MAX(mined_height), MAX(block_time), MAX(expired_unmined), MAX(pool_crossing_value)          FROM v_transactions GROUP BY txid          ORDER BY MAX(COALESCE(mined_height, 2147483647)) DESC LIMIT 200"
@@ -217,7 +224,7 @@ mod sqlite_history_tests {
         let _ = std::fs::remove_file(&path);
         Connection::open(&path).unwrap();
         let result = read_transaction_history(&path);
-        assert!(result.unwrap_err().contains("Unable to query wallet history"));
+        assert!(result.unwrap_err().contains("Wallet history schema is incompatible"));
         let _ = std::fs::remove_file(&path);
     }
 }
