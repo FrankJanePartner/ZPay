@@ -126,7 +126,11 @@ function App() {
 
       await refreshWallet();
 
-      setMessage("Wallet created successfully.");
+      setMessage(
+        created.secure_storage_saved
+          ? "Wallet created. Back up your recovery phrase offline before continuing."
+          : "Wallet created, but secure device storage is unavailable. Back up your recovery phrase offline now. Losing it may permanently prevent wallet recovery."
+      );
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -415,7 +419,11 @@ function App() {
 
           <button
             className="secondary"
-            onClick={() => setRecoveryPhrase("")}
+            onClick={() => {
+              if (window.confirm("Have you written down your recovery phrase offline and checked that every word is correct? You may not be able to recover your wallet without it.")) {
+                setRecoveryPhrase("");
+              }
+            }}
           >
             I Have Saved It
           </button>
