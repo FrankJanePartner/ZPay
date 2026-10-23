@@ -281,7 +281,7 @@ function App() {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
         amountZatoshis: Number(amountZatoshis), // <= 2.1e15, within JS safe-integer range
-        memo: sendMemo.trim() || null,
+        memo: sendMemo.trim().length > 0 ? sendMemo : null,
       });
 
       // A successful RPC with no transaction IDs is not proof of a broadcast.
