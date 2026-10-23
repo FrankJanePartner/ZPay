@@ -17,6 +17,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshDurationMs, setRefreshDurationMs] = useState<number | null>(null);
 
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendAmount, setSendAmount] = useState("");
@@ -107,9 +108,11 @@ function App() {
   async function refreshDashboard() {
     if (refreshing) return;
     setRefreshing(true);
+    const startedAt = performance.now();
     try {
       await Promise.all([refreshWallet(), checkNode()]);
     } finally {
+      setRefreshDurationMs(Math.round(performance.now() - startedAt));
       setRefreshing(false);
     }
   }
@@ -406,6 +409,12 @@ function App() {
           {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </header>
+
+      {refreshDurationMs !== null && (
+        <p className="muted" role="status">
+          Last dashboard refresh: {refreshDurationMs} ms (wallet and node requests).
+        </p>
+      )}
 
       {recoveryPhrase && (
         <section className="card recovery">
