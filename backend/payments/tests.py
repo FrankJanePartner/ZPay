@@ -69,6 +69,16 @@ class PaymentAPITests(APITestCase):
         )
         self.assertEqual(self.client.get(self.url).status_code, 401)
 
+    def test_login_secret_cannot_authenticate_api(self):
+        _, raw = Credential.issue(self.user, "Merchant login", "login")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_verification_credential_cannot_authenticate_api(self):
+        _, raw = Credential.issue(self.user, "Verified email", "verified")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
     def test_api_key_cannot_create_other_keys(self):
         _, raw = Credential.issue(self.user, "Private Bill", "api")
         self.client.credentials(HTTP_AUTHORIZATION="Bearer " + raw)
@@ -114,6 +124,119 @@ class PaymentAPITests(APITestCase):
         self.assertEqual(
             allocate.call_args.args[0].pk, payment.pk
         )
+
+    @patch("payments.views.allocate_address", return_value="TEST_ONLY_ADDRESS")
+    def test_payment_list_aggregates_active_deposits(self, allocate):
+        from .models import Deposit
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+
+        for index in range(3):
+            payment = PaymentRequest.objects.create(
+                owner=self.user,
+                idempotency_key=f"list-{index}",
+                reference=f"invoice-{index}",
+                amount_zatoshis=1000,
+                ttl_seconds=1800,
+            )
+            Deposit.objects.create(
+                owner=self.user,
+                payment_request=payment,
+                txid=f"{index + 1:064x}",
+                pool=3,
+                output_index=0,
+                amount_zatoshis=200,
+                mined_height=1,
+                block_time=timezone.now(),
+                active=True,
+            )
+            Deposit.objects.create(
+                owner=self.user,
+                payment_request=payment,
+                txid=f"{index + 10:064x}",
+                pool=3,
+                output_index=0,
+                amount_zatoshis=900,
+                mined_height=1,
+                block_time=timezone.now(),
+                active=False,
+            )
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 3)
+        self.assertTrue(all(row["received_zatoshis"] == "200" for row in response.data["results"]))
+        self.assertTrue(all(row["funding_status"] == "partially_paid" for row in response.data["results"]))
+        self.assertLessEqual(len(queries), 5)
+
+    def test_payment_detail_query_count_with_deposits(self):
+        # Regression baseline: detail reads stay bounded as deposits grow.
+        from .models import Deposit
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        payment = PaymentRequest.objects.create(
+            owner=self.user, idempotency_key="detail-profile",
+            reference="detail-profile", amount_zatoshis=1000,
+            ttl_seconds=1800,
+        )
+        for index in range(12):
+            Deposit.objects.create(
+                owner=self.user, payment_request=payment,
+                txid=f"{index + 100:064x}", pool=3,
+                output_index=0, amount_zatoshis=10,
+                mined_height=1, block_time=timezone.now(), active=True,
+            )
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url + str(payment.pk) + "/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["received_zatoshis"], "120")
+        self.assertLessEqual(len(queries), 6)
+
+    def test_payment_detail_query_count_is_bounded_at_scale(self):
+        from .models import Deposit
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        payment = PaymentRequest.objects.create(
+            owner=self.user, idempotency_key="detail-scale",
+            reference="detail-scale", amount_zatoshis=10000,
+            ttl_seconds=1800,
+        )
+        deposits = [
+            Deposit(
+                owner=self.user, payment_request=payment,
+                txid=f"{index + 1000:064x}", pool=3,
+                output_index=0, amount_zatoshis=10,
+                mined_height=1, block_time=timezone.now(), active=True,
+            )
+            for index in range(100)
+        ]
+        Deposit.objects.bulk_create(deposits)
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url + str(payment.pk) + "/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["received_zatoshis"], "1000")
+        self.assertLessEqual(len(queries), 6)
+
+    def test_payment_list_query_count_is_bounded_at_scale(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        PaymentRequest.objects.bulk_create([
+            PaymentRequest(
+                owner=self.user, idempotency_key=f"scale-list-{index}",
+                reference=f"scale-list-{index}", amount_zatoshis=1000,
+                ttl_seconds=1800,
+            )
+            for index in range(100)
+        ])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 100)
+        self.assertLessEqual(len(queries), 5)
 
     def test_cross_account_detail_and_list_are_isolated(self):
         payment = PaymentRequest.objects.create(
@@ -350,6 +473,38 @@ class PaymentAPITests(APITestCase):
             "uncertain",
             str(second.data["detail"]).lower(),
         )
+        send.assert_called_once()
+
+    @patch("payments.views.send_zec", side_effect=WalletUnavailable())
+    def test_malformed_wallet_response_does_not_confirm_broadcast(self, send):
+        response = self.create_send(key="malformed-wallet-response")
+        self.assertEqual(response.status_code, 503)
+        record = SendRequest.objects.get(idempotency_key="malformed-wallet-response")
+        self.assertNotEqual(record.status, "broadcast")
+        self.assertEqual(record.txids, [])
+
+    @patch("payments.views.send_zec")
+    def test_send_to_history_lifecycle_preserves_memo_and_prevents_rebroadcast(self, send):
+        """API integration: create -> history -> retry -> history, with mocked network."""
+        send.return_value = ["c" * 64]
+        payload = {
+            "recipient_address": "test-shielded-recipient",
+            "amount_zatoshis": "27900",
+            "memo": "Invoice payment ✓",
+        }
+        headers = {"HTTP_IDEMPOTENCY_KEY": "integration-send-history-1"}
+        created = self.client.post("/api/v1/sends/", payload, format="json", **headers)
+        self.assertIn(created.status_code, (200, 201))
+        first_history = self.client.get("/api/v1/transactions/")
+        self.assertEqual(first_history.status_code, 200)
+        sent = [row for row in first_history.data["results"] if row["direction"] == "sent"]
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0]["memo"], payload["memo"])
+        self.assertEqual(sent[0]["amount_zatoshis"], payload["amount_zatoshis"])
+        self.assertEqual(sent[0]["txid"], "c" * 64)
+        retried = self.client.post("/api/v1/sends/", payload, format="json", **headers)
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(SendRequest.objects.filter(owner=self.user).count(), 1)
         send.assert_called_once()
 
     @patch("payments.views.send_zec")

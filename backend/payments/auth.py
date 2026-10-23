@@ -14,7 +14,7 @@ class BearerAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Use Authorization: Bearer <token>.")
         digest = hashlib.sha256(parts[1]).hexdigest()
         credential = Credential.objects.select_related("owner").filter(digest=digest, revoked_at=None).first()
-        if credential is None or not credential.owner.is_active:
+        if credential is None or credential.kind not in ("session", "api") or not credential.owner.is_active:
             raise AuthenticationFailed("Invalid or revoked token.")
         if credential.expires_at and credential.expires_at <= timezone.now():
             raise AuthenticationFailed("Token expired.")

@@ -53,6 +53,8 @@ class PaymentOutput(serializers.ModelSerializer):
         fields = ["id", "reference", "amount_zatoshis", "address", "status", "created_at", "expires_at", "received_zatoshis", "funding_status"]
     def get_received_zatoshis(self, obj) -> str:
         from django.db.models import Sum
+        if hasattr(obj, "received_total"):
+            return str(obj.received_total or 0)
         if not hasattr(obj, "_received_total"):
             obj._received_total = obj.deposits.filter(active=True).aggregate(total=Sum("amount_zatoshis"))["total"] or 0
         return str(obj._received_total)

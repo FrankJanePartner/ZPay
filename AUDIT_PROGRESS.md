@@ -1,0 +1,102 @@
+# ZOERDWallet audit progress ledger
+
+Updated: 2026-10-22. Branch: `audit/security-hardening-2026-10`. Draft PR: #5.
+
+**How to read this:** Milestone names and order are frozen. "In progress" does not mean no work has happened. Each milestone records shipped changes, independent verification, and remaining work. Only mark a milestone Done when its entire scope is finished. This ledger does not authorize merging or production deployment.
+
+| # | Fixed milestone | Status | Concrete progress / evidence | Remaining |
+|---|---|---|---|---|
+| 01 | Repository setup and audit workflow | Done | Audit branch and draft PR #5; backend, frontend and Rust GitHub Actions workflows | Maintain workflows |
+| 02 | Authentication and access security | In progress | Bearer credential-kind restriction `f19d547`; regression tests `fb2c1ef` | Complete authorization and recovery review |
+| 03 | Wallet and transaction security | In progress | TXID validation `8511e30`; provider tests `4c8326a`; wallet-open safety `0dae4ec`, `4c7db65` | Rust integration, transaction and memo security verification |
+| 04 | Payment reliability and transaction history | In progress | Uncertain send test `7f8b71e`; payment history aggregation `7c6c788`, `1661256` | Sent/received history, fees, memos and end-to-end behavior |
+| 05 | Modular architecture and scalability | Pending | No scoped implementation verified | Module boundaries and extensibility |
+| 06 | Backend and database performance | In progress | Payment-list aggregation and query-count regression `8f108b1` | Profile other queries and workloads |
+| 07 | Desktop performance and responsiveness | In progress | Refresh progress `03b2d84`; wallet-opening error screen `4c7db65` | Desktop UX verification and performance measurements |
+| 08 | Dependency and vulnerability remediation | Pending | Rust lockfile exists; frontend npm lockfile absent | Review dependency vulnerabilities and pin frontend dependencies |
+| 09 | Automated and integration testing | In progress | Backend run #152 passed; frontend run #12 passed; wallet service run #47 passed; Rust tests `d6e309e` committed | Verify Rust run #8 and add desktop integration coverage |
+| 10 | Performance benchmarking | Pending | No baseline measured | Benchmark critical paths |
+| 11 | Frontend and backend maintainability | Pending | No milestone-wide review completed | Code organization, typing, linting and documentation |
+| 12 | Production configuration and operational safety | In progress | Production session cookie hardening `ee2c4c0` | Production settings and recovery checks |
+| 13 | Final security and code review | Pending | Not started | Independent review and sign-off |
+| 14 | Merge into personal main branch | Pending | No merge performed | Review and explicit approval |
+| 15 | Sync ZOERDHUB company fork | Pending | No company changes performed | User-controlled synchronization |
+| 16 | Final SonarQube/Snyk rescan and closure | Pending | Not started | Final rescans and remediation |
+
+## Latest verified checks
+
+- Backend checks run #152: success, commit `d6e309e`
+- Frontend checks run #12: success, commit `d6e309e`
+- Wallet service checks run #47: success, commit `d6e309e`
+- Rust checks run #8: in progress when last checked; do not claim success until verified.
+
+## Reporting rule
+
+Always preserve the 16 fixed milestone titles, numbering and order. Report **new commits, new test results, and remaining work** separately from milestone completion. Never claim a workflow passed before its conclusion is successful.
+
+## Checkpoint 01: wallet opening and memo validation (2026-10-22)
+
+**Scope:** Milestones 03, 07, 09. No changes to the 16 milestone definitions.
+
+**Delivered code:**
+- `0dae4ec`: Rust command checks whether wallet database file exists independently of opening the wallet.
+- `4c7db65`: Desktop shows a retry/error state when an existing wallet cannot be opened, instead of the new-wallet creation screen.
+- `d6e309e`: Four Rust amount validation regression tests for invalid, overprecise, valid and out-of-range values.
+- `4022181`: Three Rust memo parsing tests for Unicode and 512-byte boundary handling.
+
+**Verified on commit `4022181`:**
+- Backend run #156: success.
+- Frontend run #16: success.
+- Wallet service run #49: success.
+- Rust run #12: still in progress at checkpoint; no Rust pass claimed.
+
+**Unverified:** Live wallet memo broadcast, sent/received transaction history and fee display, desktop UI end-to-end behavior. Rust memo tests have not yet passed at the time of this checkpoint.
+
+**Next checkpoint exit criteria:** Rust memo tests pass, then a reproducible memo-broadcast failure is identified and fixed or documented with precise blocker.
+
+
+## Checkpoint 02: transaction send safety and memo restrictions (2026-10-22)
+
+**Scope:** Milestones 03, 04, 07, 09. All 16 milestone names and their ordering remain unchanged.
+
+**Code committed to the audit branch:**
+- `8589c3f`: Correct desktop ZEC amount precision validation regex.
+- `aab592a`: Warn against immediate retries after indeterminate broadcast failures.
+- `c57d83b`: Distinguish wallet signing/proposal failures from broadcast errors.
+- `80da6a9`: Guard desktop send handler against overlapping wallet operations.
+- `a4fe251`: Do not report broadcast success if no transaction IDs are returned.
+- `ca68821`: Reject transparent-address memos in the desktop interface.
+- `d8ee03a`: Enforce transparent-address memo restriction in both Rust send paths and add regression tests.
+- `ffdcf57`: Correctly describe lightwalletd RPC errors as indeterminate broadcast outcomes.
+- `43be304`: Recognize updated indeterminate-broadcast error in desktop UI.
+
+**CI evidence checked:**
+- `d8ee03a`: frontend, backend and wallet-service workflows successful; Rust workflow still in progress at check time.
+- `43be304`: frontend, backend and wallet-service workflows successful; Rust workflow still in progress at check time.
+- Newer Rust tests and any live wallet transaction behavior remain unverified. Do not mark them passed.
+
+**Critical open items:** Build wallet transaction-history read model from supported Zcash client APIs, surface sent/received records with fees and memos in Tauri UI, reproduce and resolve shielded memo broadcasting, run real wallet end-to-end tests. Do not use undocumented SQLite internals as a shortcut, and do not expose recovery phrases or keys.
+
+**Safety:** Draft PR #5 remains unmerged. Personal main and ZOERDHUB company fork unchanged.
+
+
+## Checkpoint 03: exact ZEC amounts at the desktop boundary (2026-10-22)
+
+**Scope:** Milestones 03, 04, 09. Milestone names, order, and status remain unchanged.
+
+**Code:** `a1d0b91` changes the Tauri send command to accept integer zatoshis and call the integer-based Rust send path. `0f8b4d1` parses desktop decimal ZEC amounts into integer zatoshis using BigInt, enforces eight-decimal precision and network monetary limits, and passes a safe integer to Tauri. These are committed but not live-wallet verified.
+
+**CI checked on `0f8b4d1`:** Frontend and backend workflows successful; wallet-service and Rust workflows still in progress at check time. Do not mark those two as passed.
+
+**Still required:** Rust build/test conclusion; shielded memo broadcast testing; persistent sent/received transaction history with fee, memo, timestamp and status; full end-to-end payment regression testing.
+
+**Reporting discipline:** Keep the detailed 16-milestone task checklist expanded in user-facing updates; do not substitute a shortened milestone summary. Do not change historical denominators silently when adding legitimately necessary tasks.
+
+
+## Checkpoint 04: Rust CI job verification (2026-10-22)
+
+**Independent evidence:** GitHub Actions Rust job for commit `d8ee03a` (run 39790960014) is completed with conclusion **success**. Its `cargo test --locked` step also succeeded. Rust job for commit `43be304` (run 39791356396) is completed with conclusion **success** and `cargo test --locked` succeeded. These confirm Rust-side transparent memo regression tests and the subsequent broadcast error classification compile and pass the Rust CI suite.
+
+**Newest exact-amount commit `0f8b4d1`:** Rust job in run 39791955854 still showed in progress when checked, although its `cargo test --locked` step completed successfully. Do not report this newest job as concluded until the job conclusion is success.
+
+**Still not verified:** real Zcash transfer, shielded memo broadcast, sent/received history and fee/memo display. No production merge.

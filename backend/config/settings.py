@@ -10,7 +10,16 @@ if not SECRET_KEY:
     if not DEBUG:
         raise RuntimeError("Set ZPAY_SECRET_KEY; use ZPAY_DEBUG=1 only for local development.")
     SECRET_KEY = "local-development-only-do-not-deploy"
-ALLOWED_HOSTS = os.environ.get("ZPAY_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        "ZPAY_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,testserver" if DEBUG else "",
+    ).split(",")
+    if host.strip()
+]
+if not DEBUG and not ALLOWED_HOSTS:
+    raise RuntimeError("Set ZPAY_ALLOWED_HOSTS to the production hostname(s).")
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions", "django.contrib.messages", "corsheaders", "rest_framework", "drf_spectacular", "drf_spectacular_sidecar", "django.contrib.staticfiles", "payments"]
 MIDDLEWARE = [
     "config.middleware.NoStoreApiMiddleware",
@@ -33,6 +42,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+# Keep Django admin session cookies HTTPS-only in production.
+SESSION_COOKIE_SECURE = not DEBUG
 USE_TZ = True
 TIME_ZONE = "UTC"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

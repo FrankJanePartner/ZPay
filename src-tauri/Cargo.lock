@@ -7022,6 +7022,7 @@ dependencies = [
  "async-trait",
  "bip39",
  "rand",
+ "rusqlite",
  "secrecy",
  "serde",
  "serde_json",

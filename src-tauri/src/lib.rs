@@ -155,12 +155,62 @@ async fn create_wallet(
 }
 
 #[tauri::command]
+fn wallet_file_exists(state: State<'_, AppState>) -> bool {
+    state.wallet_db_path.exists()
+}
+
+#[tauri::command]
 fn open_wallet(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     reopen_wallet_first_address(
         &state.wallet_db_path,
     )
+}
+
+// Never discard the recovery secret if a failed restoration left a wallet file.
+// The file may already contain an initialized account and must remain recoverable.
+fn should_remove_restore_secret(wallet_db_path: &std::path::Path) -> bool {
+    !wallet_db_path.exists()
+}
+
+#[cfg(test)]
+mod restore_secret_tests {
+    use super::should_remove_restore_secret;
+
+    #[test]
+    fn preserve_secret_when_wallet_database_exists() {
+        let file = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-{}",
+            std::process::id(),
+            "existing-wallet"
+        ));
+        std::fs::write(&file, b"wallet").expect("create temporary wallet file");
+        assert!(!should_remove_restore_secret(&file));
+        std::fs::remove_file(file).expect("remove temporary wallet file");
+    }
+
+    #[test]
+    fn preserve_secret_when_wallet_path_is_a_directory() {
+        let directory = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-directory",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).expect("create temporary directory");
+        assert!(!should_remove_restore_secret(&directory));
+        std::fs::remove_dir(directory).expect("remove temporary directory");
+    }
+
+    #[test]
+    fn remove_secret_if_wallet_database_was_never_created() {
+        let file = std::env::temp_dir().join(format!(
+            "zoerdwallet-restore-test-{}-{}",
+            std::process::id(),
+            "missing-wallet"
+        ));
+        let _ = std::fs::remove_file(&file);
+        assert!(should_remove_restore_secret(&file));
+    }
 }
 
 #[tauri::command]
@@ -186,7 +236,7 @@ async fn restore_wallet(
     )?;
 
     match restore_wallet_from_phrase(
-        path,
+        path.clone(),
         &endpoint,
         phrase,
     )
@@ -194,7 +244,12 @@ async fn restore_wallet(
     {
         Ok(address) => Ok(address),
         Err(error) => {
-            let _ = remove_recovery_phrase(&app);
+            // Restoration can fail after creating the wallet database.
+            // Keep its recovery secret in secure storage in that case;
+            // deleting it could leave an existing wallet inaccessible.
+            if should_remove_restore_secret(&path) {
+                let _ = remove_recovery_phrase(&app);
+            }
             Err(error)
         }
     }
@@ -225,7 +280,7 @@ async fn restore_wallet_at_birthday(
     )?;
 
     match restore_wallet_from_phrase_at_birthday(
-        path,
+        path.clone(),
         &endpoint,
         phrase,
         birthday_height,
@@ -234,7 +289,12 @@ async fn restore_wallet_at_birthday(
     {
         Ok(address) => Ok(address),
         Err(error) => {
-            let _ = remove_recovery_phrase(&app);
+            // Restoration can fail after creating the wallet database.
+            // Keep its recovery secret in secure storage in that case;
+            // deleting it could leave an existing wallet inaccessible.
+            if should_remove_restore_secret(&path) {
+                let _ = remove_recovery_phrase(&app);
+            }
             Err(error)
         }
     }
@@ -269,6 +329,13 @@ fn wallet_status(
 }
 
 #[tauri::command]
+fn get_transaction_history(
+    state: State<'_, AppState>,
+) -> Result<Vec<wallet::history::TransactionHistoryEntry>, String> {
+    wallet::history::read_transaction_history(&state.wallet_db_path)
+}
+
+#[tauri::command]
 fn get_addresses(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
@@ -287,7 +354,7 @@ async fn send_zec(
     app: AppHandle,
     state: State<'_, AppState>,
     recipient_address: String,
-    amount_zec: f64,
+    amount_zatoshis: u64,
     memo: Option<String>,
 ) -> Result<Vec<String>, String> {
     let path = state.wallet_db_path.clone();
@@ -302,12 +369,12 @@ async fn send_zec(
     let recovery_phrase =
         load_recovery_phrase(&app)?;
 
-    wallet::send::send_zec(
+    wallet::send::send_zatoshis(
         path,
         &endpoint,
         &recovery_phrase,
         &recipient_address,
-        amount_zec,
+        amount_zatoshis,
         memo.as_deref().filter(|value| !value.is_empty()),
     )
     .await
@@ -362,10 +429,12 @@ pub fn run() {
                 secure_secret_available,
                 create_wallet,
                 open_wallet,
+                wallet_file_exists,
                 restore_wallet,
                 restore_wallet_at_birthday,
                 sync_wallet,
                 wallet_status,
+                get_transaction_history,
                 get_addresses,
                 create_address,
                 send_zec,

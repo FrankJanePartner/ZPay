@@ -207,6 +207,35 @@ pub fn reopen_wallet_first_address<P: AsRef<Path>>(
 mod tests {
     use super::*;
 
+    #[test]
+    fn missing_wallet_does_not_create_or_overwrite_data() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-missing-wallet-{}-{}.sqlite",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        // A missing wallet must fail closed, never implicitly create a new one.
+        assert!(!path.exists(), "test path must not already exist");
+        let error = reopen_wallet_first_address(&path).unwrap_err();
+        assert!(error.contains("No wallet exists"));
+        assert!(!path.exists(), "reopening must not create a wallet file");
+    }
+
+    #[test]
+    fn corrupt_wallet_is_preserved_on_open_failure() {
+        let path = std::env::temp_dir().join(format!(
+            "zoerd-corrupt-wallet-{}-{}.sqlite",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        let original = b"invalid wallet database, must remain untouched";
+        std::fs::write(&path, original).expect("create invalid wallet fixture");
+        let result = reopen_wallet_first_address(&path);
+        assert!(result.is_err(), "corrupt wallet must not open");
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+        std::fs::remove_file(&path).expect("clean up fixture");
+    }
+
     #[tokio::test]
     #[ignore]
     async fn create_and_reopen_persistent_wallet() {
