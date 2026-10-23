@@ -484,6 +484,30 @@ class PaymentAPITests(APITestCase):
         self.assertEqual(record.txids, [])
 
     @patch("payments.views.send_zec")
+    def test_send_to_history_lifecycle_preserves_memo_and_prevents_rebroadcast(self, send):
+        """API integration: create -> history -> retry -> history, with mocked network."""
+        send.return_value = ["c" * 64]
+        payload = {
+            "recipient_address": "test-shielded-recipient",
+            "amount_zatoshis": "27900",
+            "memo": "Invoice payment ✓",
+        }
+        headers = {"HTTP_IDEMPOTENCY_KEY": "integration-send-history-1"}
+        created = self.client.post("/api/v1/sends/", payload, format="json", **headers)
+        self.assertIn(created.status_code, (200, 201))
+        first_history = self.client.get("/api/v1/transactions/")
+        self.assertEqual(first_history.status_code, 200)
+        sent = [row for row in first_history.data["results"] if row["direction"] == "sent"]
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0]["memo"], payload["memo"])
+        self.assertEqual(sent[0]["amount_zatoshis"], payload["amount_zatoshis"])
+        self.assertEqual(sent[0]["txid"], "c" * 64)
+        retried = self.client.post("/api/v1/sends/", payload, format="json", **headers)
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(SendRequest.objects.filter(owner=self.user).count(), 1)
+        send.assert_called_once()
+
+    @patch("payments.views.send_zec")
     def test_broadcast_send_is_not_sent_twice(self, send):
         send.return_value = ["a" * 64]
 
