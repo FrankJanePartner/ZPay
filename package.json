@@ -15,6 +15,9 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2"
   },
+  "overrides": {
+    "source-map-js": "^1.2.2"
+  },
   "devDependencies": {
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
