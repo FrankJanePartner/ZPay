@@ -1,32 +1,13 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import { formatZec as zec } from "./zec-format";
 
-type WalletStatus = {
-  chain_height: number | null;
-  fully_scanned_height: number | null;
-  total_zatoshis: number;
-  spendable_zatoshis: number;
-  pending_zatoshis: number;
-  address_count: number;
-};
-
-type CreatedWallet = {
-  recovery_phrase: string;
-  address: string;
-  birthday_height: number;
-  chain_tip: number;
-  secure_storage_saved: boolean;
-};
-
-const ZATOSHIS_PER_ZEC = 100_000_000;
-
-function zec(zatoshis: number) {
-  return (zatoshis / ZATOSHIS_PER_ZEC).toFixed(8);
-}
+import type { WalletStatus, TransactionHistoryEntry, CreatedWallet } from "./wallet-types";
 
 function App() {
   const [walletExists, setWalletExists] = useState<boolean | null>(null);
+  const [walletOpenError, setWalletOpenError] = useState(false);
   const [status, setStatus] = useState<WalletStatus | null>(null);
   const [addresses, setAddresses] = useState<string[]>([]);
   const [recoveryPhrase, setRecoveryPhrase] = useState("");
@@ -35,25 +16,43 @@ function App() {
   const [nodeHeight, setNodeHeight] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshDurationMs, setRefreshDurationMs] = useState<number | null>(null);
 
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sendMemo, setSendMemo] = useState("");
   const [sendTxids, setSendTxids] = useState<string[]>([]);
+  const [history, setHistory] = useState<TransactionHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [secureSecretAvailable, setSecureSecretAvailable] =
     useState<boolean | null>(null);
 
   async function refreshWallet() {
     try {
+      const exists = await invoke<boolean>("wallet_file_exists");
+      if (!exists) {
+        setWalletExists(false);
+        setWalletOpenError(false);
+        setStatus(null);
+        setAddresses([]);
+        setHistory([]);
+        setHistoryError(null);
+        return;
+      }
+
       const address = await invoke<string>("open_wallet");
 
       setWalletExists(true);
+      setWalletOpenError(false);
 
       const [walletStatus, walletAddresses] = await Promise.all([
         invoke<WalletStatus>("wallet_status"),
         invoke<string[]>("get_addresses"),
       ]);
 
+      void refreshHistory();
       setStatus(walletStatus);
       setAddresses(
         walletAddresses.length > 0
@@ -63,9 +62,28 @@ function App() {
           : []
       );
     } catch {
-      setWalletExists(false);
+      // Do not offer wallet creation when an existing wallet failed to open.
+      setWalletOpenError(true);
+      setWalletExists(null);
       setStatus(null);
       setAddresses([]);
+      setHistory([]);
+      setHistoryError(null);
+    }
+  }
+
+  async function refreshHistory() {
+    setHistoryLoading(true);
+    try {
+      const entries = await invoke<TransactionHistoryEntry[]>("get_transaction_history");
+      setHistory(entries);
+      setHistoryError(null);
+    } catch {
+      // Do not imply that missing history is proof that no payments exist.
+      setHistory([]);
+      setHistoryError("Transaction history is unavailable in this build. Do not resend a payment based on this screen.");
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -87,6 +105,18 @@ function App() {
       .catch(() => setSecureSecretAvailable(false));
   }, []);
 
+  async function refreshDashboard() {
+    if (refreshing) return;
+    setRefreshing(true);
+    const startedAt = performance.now();
+    try {
+      await Promise.all([refreshWallet(), checkNode()]);
+    } finally {
+      setRefreshDurationMs(Math.round(performance.now() - startedAt));
+      setRefreshing(false);
+    }
+  }
+
   async function createWallet() {
     setBusy(true);
     setMessage("");
@@ -99,7 +129,11 @@ function App() {
 
       await refreshWallet();
 
-      setMessage("Wallet created successfully.");
+      setMessage(
+        created.secure_storage_saved
+          ? "Wallet created. Back up your recovery phrase offline before continuing."
+          : "Wallet created, but secure device storage is unavailable. Back up your recovery phrase offline now. Losing it may permanently prevent wallet recovery."
+      );
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -175,6 +209,17 @@ function App() {
 
   function readableSendError(error: unknown) {
     const raw = String(error);
+    // A transport failure after signing does not prove the network rejected the transaction.
+    // Do not invite an immediate retry that could produce a duplicate payment.
+    if (/Broadcast outcome unknown|lightwalletd rejected transaction RPC|failed to connect to lightwalletd for broadcast|signed transaction .* was not found/i.test(raw)) {
+      return "The transaction broadcast could not be confirmed. Do not send again until you have checked your wallet and the network for the transaction.";
+    }
+    if (/Zcash network rejected transaction/i.test(raw)) {
+      return "The Zcash network rejected the transaction. Check your wallet status and recipient before trying again.";
+    }
+    if (/failed to build\/sign transaction|failed to create transaction proposal|Sapling proving parameters were not found/i.test(raw)) {
+      return "The wallet could not prepare or sign the payment. Check wallet synchronization, available funds and proving parameters before trying again.";
+    }
     if (/insufficient|not enough|balance too low|insufficientfunds/i.test(raw)) return "Insufficient funds. Please reduce the amount to cover the payment and network fee.";
     if (/invalid.*address|unsupported.*address/i.test(raw)) return "The recipient address is invalid or unsupported.";
     if (/memo|shielded|transparent/i.test(raw)) return "The memo could not be sent. Zcash memos require a supported shielded recipient.";
@@ -183,16 +228,28 @@ function App() {
   }
 
   async function sendZec() {
+    // Avoid duplicate submissions while another wallet operation is in progress.
+    if (busy) return;
+
     const recipient = sendRecipient.trim();
-    const amount = Number(sendAmount);
+    const amountText = sendAmount.trim();
 
     if (!recipient) {
       setMessage("Enter a recipient Zcash address.");
       return;
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter a valid ZEC amount greater than zero.");
+    // Parse the decimal string exactly. A floating-point conversion can
+    // silently change a ZEC payment by one or more zatoshis.
+    if (!/^(?:\d+)(?:\.\d{1,8})?$/.test(amountText)) {
+      setMessage("Enter a ZEC amount with no more than 8 decimal places.");
+      return;
+    }
+    const [whole, fractional = ""] = amountText.split(".");
+    const amountZatoshis = BigInt(whole) * 100_000_000n +
+      BigInt(fractional.padEnd(8, "0"));
+    if (amountZatoshis <= 0n || amountZatoshis > 2_100_000_000_000_000n) {
+      setMessage("Enter a valid ZEC amount within the network monetary range.");
       return;
     }
 
@@ -207,7 +264,14 @@ function App() {
       return;
     }
 
-    if (new TextEncoder().encode(sendMemo).length > 512) {
+    // Transparent Zcash addresses cannot receive transaction memos.
+    // Reject this combination before requesting a signed transaction.
+    if (sendMemo.trim().length > 0 && /^(?:t1|t3)/.test(recipient)) {
+      setMessage("This is a transparent Zcash address. Memos require a shielded recipient address.");
+      return;
+    }
+
+    if (new TextEncoder().encode(sendMemo.trim().length > 0 ? sendMemo : "").length > 512) {
       setMessage("Memo must not exceed 512 bytes.");
       return;
     }
@@ -219,9 +283,16 @@ function App() {
     try {
       const txids = await invoke<string[]>("send_zec", {
         recipientAddress: recipient,
-        amountZec: amount,
-        memo: sendMemo || null,
+        amountZatoshis: Number(amountZatoshis), // <= 2.1e15, within JS safe-integer range
+        memo: sendMemo.trim().length > 0 ? sendMemo : null,
       });
+
+      // A successful RPC with no transaction IDs is not proof of a broadcast.
+      // Keep the form intact so the user can investigate the wallet state.
+      if (txids.length === 0) {
+        setMessage("No transaction ID was returned. Check your wallet history before attempting another payment.");
+        return;
+      }
 
       setSendTxids(txids);
       setSendRecipient("");
@@ -251,7 +322,14 @@ function App() {
     return (
       <main className="app">
         <h1>ZOERDWALLET</h1>
-        <p>Opening wallet...</p>
+        {walletOpenError ? (
+          <>
+            <p>Unable to open the wallet. Your existing wallet data has not been replaced.</p>
+            <button onClick={refreshWallet}>Retry opening wallet</button>
+          </>
+        ) : (
+          <p>Opening wallet...</p>
+        )}
       </main>
     );
   }
@@ -324,14 +402,19 @@ function App() {
 
         <button
           className="secondary"
-          onClick={() => {
-            refreshWallet();
-            checkNode();
-          }}
+          onClick={refreshDashboard}
+          disabled={refreshing || busy}
+          aria-busy={refreshing}
         >
-          Refresh
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </header>
+
+      {refreshDurationMs !== null && (
+        <p className="muted" role="status">
+          Last dashboard refresh: {refreshDurationMs} ms (wallet and node requests).
+        </p>
+      )}
 
       {recoveryPhrase && (
         <section className="card recovery">
@@ -345,7 +428,11 @@ function App() {
 
           <button
             className="secondary"
-            onClick={() => setRecoveryPhrase("")}
+            onClick={() => {
+              if (window.confirm("Have you written down your recovery phrase offline and checked that every word is correct? You may not be able to recover your wallet without it.")) {
+                setRecoveryPhrase("");
+              }
+            }}
           >
             I Have Saved It
           </button>
@@ -406,9 +493,9 @@ function App() {
 
             <div className="amountInput">
               <input
-                type="number"
-                min="0"
-                step="0.00000001"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]+(\\.[0-9]{1,8})?"
                 value={sendAmount}
                 onChange={(e) =>
                   setSendAmount(e.target.value)
@@ -457,6 +544,37 @@ function App() {
       </section>
 
       <section className="card">
+        <div className="sectionHeader">
+          <div>
+            <h2>Transaction history</h2>
+            <p className="muted">Sent and received Zcash activity</p>
+          </div>
+          <button className="secondary" onClick={refreshHistory} disabled={historyLoading}>
+            {historyLoading ? "Loading..." : "Refresh history"}
+          </button>
+        </div>
+        {historyError ? (
+          <p className="warning" role="alert">{historyError}</p>
+        ) : history.length === 0 ? (
+          <p className="muted">{historyLoading ? "Loading transactions..." : "No recorded transactions returned."}</p>
+        ) : (
+          <div className="addresses">
+            {history.map((tx) => (
+              <div className="address" key={tx.txid}>
+                <strong>{tx.direction.toUpperCase()} · {tx.status}</strong>
+                <span>{zec(Math.abs(tx.amount_zatoshis))} ZEC</span>
+                <span>Fee: {tx.fee_zatoshis == null ? "Unavailable" : `${zec(tx.fee_zatoshis)} ZEC`}</span>
+                <span>{tx.block_time == null ? "Time unavailable" : new Date(tx.block_time * 1000).toLocaleString()}</span>
+                <span>{tx.mined_height == null ? "Not mined" : `Block ${tx.mined_height}`}</span>
+                {tx.memos.map((memo, index) => <p key={index}>{memo}</p>)}
+                <code>{tx.txid}</code>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
         <h2>Synchronization</h2>
 
         <div className="statusRows">
@@ -470,10 +588,13 @@ function App() {
           <strong>{status?.fully_scanned_height ?? "Not scanned"}</strong>
         </div>
 
-        <p className="warning">
-          The backing Zebra node is still catching up to current Zcash
-          mainnet. Do not fund this development wallet yet.
-        </p>
+        {(nodeHeight == null || status?.fully_scanned_height == null ||
+          status.fully_scanned_height < nodeHeight) && (
+          <p className="warning">
+            Wallet synchronization is incomplete or the backing node is unavailable.
+            Do not rely on the displayed balance until synchronization finishes.
+          </p>
+        )}
       </section>
 
       <section className="card">

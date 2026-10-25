@@ -1,5 +1,6 @@
 
 import json
+import re
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -98,7 +99,7 @@ def send_zec(send_request):
             or not isinstance(result.get("txids"), list)
             or not result["txids"]
             or not all(
-                isinstance(txid, str) and txid
+                isinstance(txid, str) and re.fullmatch("[0-9a-fA-F]{64}", txid)
                 for txid in result["txids"]
             )
         ):

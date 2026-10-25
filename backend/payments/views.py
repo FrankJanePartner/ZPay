@@ -15,7 +15,7 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiExample
@@ -383,12 +383,22 @@ class RevokeKey(APIView):
         return Response(status=204)
 
 
+def payment_queryset_with_received_totals(owner):
+    """Use the same SQL aggregation for payment list and detail views."""
+    return PaymentRequest.objects.filter(owner=owner).annotate(
+        received_total=Sum(
+            "deposits__amount_zatoshis",
+            filter=Q(deposits__active=True),
+        )
+    )
+
+
 class Payments(generics.ListCreateAPIView):
     serializer_class = PaymentOutput
 
     def get_queryset(self):
-        return PaymentRequest.objects.filter(
-            owner=self.request.user
+        return payment_queryset_with_received_totals(
+            self.request.user
         ).order_by("-created_at", "-id")
 
     def create(self, request, *args, **kwargs):
@@ -456,9 +466,7 @@ class PaymentDetail(generics.RetrieveAPIView):
     serializer_class = PaymentOutput
 
     def get_queryset(self):
-        return PaymentRequest.objects.filter(
-            owner=self.request.user
-        )
+        return payment_queryset_with_received_totals(self.request.user)
 
 
 class Sends(generics.ListCreateAPIView):

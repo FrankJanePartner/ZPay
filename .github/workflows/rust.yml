@@ -1,0 +1,16 @@
+name: Rust checks
+on:
+  push:
+    branches: [main, 'audit/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev pkg-config
+      - working-directory: src-tauri
+        run: cargo test --locked

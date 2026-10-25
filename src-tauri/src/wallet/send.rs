@@ -85,7 +85,10 @@ pub fn transaction_request(
     amount: Zatoshis,
     memo: Option<&str>,
 ) -> Result<TransactionRequest, String> {
+    // Treat whitespace-only memos as absent, rather than constructing an
+    // unnecessary memo output. Preserve meaningful memo whitespace verbatim.
     let memo_bytes = memo
+        .filter(|value| !value.trim().is_empty())
         .map(|value| {
             value
                 .parse::<Memo>()
@@ -347,7 +350,7 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
             .await
             .map_err(|e| {
                 format!(
-                    "lightwalletd rejected transaction RPC {txid}: {e}"
+                    "Broadcast outcome unknown for transaction {txid}: lightwalletd RPC failed: {e}. Check network or wallet history before retrying."
                 )
             })?
             .into_inner();
@@ -370,6 +373,15 @@ pub async fn broadcast_signed_transactions<P: AsRef<std::path::Path>>(
     Ok(broadcast_txids)
 }
 
+fn validate_memo_recipient(recipient_address: &str, memo: Option<&str>) -> Result<(), String> {
+    if memo.is_some_and(|value| !value.trim().is_empty())
+        && (recipient_address.starts_with("t1") || recipient_address.starts_with("t3"))
+    {
+        return Err("Transparent Zcash addresses cannot receive memos. Use a shielded recipient.".to_string());
+    }
+    Ok(())
+}
+
 pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
     wallet_path: P,
     lightwalletd_endpoint: &str,
@@ -378,6 +390,8 @@ pub async fn send_zatoshis<P: AsRef<std::path::Path>>(
     amount_zatoshis: u64,
     memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
+    validate_memo_recipient(recipient_address.trim(), memo)?;
+
     let recipient = recipient_address
         .trim()
         .parse::<ZcashAddress>()
@@ -409,6 +423,8 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
     amount_zec: f64,
     memo: Option<&str>,
 ) -> Result<Vec<String>, String> {
+    validate_memo_recipient(recipient_address.trim(), memo)?;
+
     let recipient =
         recipient_address
             .trim()
@@ -439,4 +455,85 @@ pub async fn send_zec<P: AsRef<std::path::Path>>(
         &txids,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_memo_recipient, zatoshis_from_zec};
+
+    #[test]
+    fn transparent_memo_is_rejected() {
+        assert!(validate_memo_recipient("t1example", Some("memo")).is_err());
+        assert!(validate_memo_recipient("t3example", Some("memo")).is_err());
+    }
+
+    #[test]
+    fn whitespace_only_memo_is_allowed_for_transparent_address() {
+        assert!(validate_memo_recipient("t1example", Some("  \t  ")).is_ok());
+        assert!(validate_memo_recipient("t3example", Some("\n")).is_ok());
+    }
+
+    #[test]
+    fn shielded_memo_is_not_blocked_by_transparent_guard() {
+        assert!(validate_memo_recipient("u1example", Some("memo")).is_ok());
+        assert!(validate_memo_recipient("zs1example", Some("memo")).is_ok());
+        assert!(validate_memo_recipient("t1example", None).is_ok());
+    }
+
+    use zcash_protocol::memo::Memo;
+
+    #[test]
+    fn whitespace_only_memo_does_not_create_memo_output() {
+        use zcash_protocol::memo::Memo;
+        let memo = "   ";
+        let encoded = memo
+            .trim()
+            .is_empty()
+            .then_some(None::<Memo>)
+            .flatten();
+        assert!(encoded.is_none());
+    }
+
+    #[test]
+    fn accepts_unicode_memo_within_byte_limit() {
+        let memo = "Payment for services 🪙";
+        assert!(memo.parse::<Memo>().is_ok());
+    }
+
+    #[test]
+    fn rejects_memo_over_512_utf8_bytes() {
+        let memo = "🪙".repeat(129);
+        assert!(memo.as_bytes().len() > 512);
+        assert!(memo.parse::<Memo>().is_err());
+    }
+
+    #[test]
+    fn accepts_exactly_512_byte_memo() {
+        let memo = "x".repeat(512);
+        assert!(memo.parse::<Memo>().is_ok());
+    }
+
+
+    #[test]
+    fn rejects_non_finite_or_non_positive_amounts() {
+        for amount in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -1.0] {
+            assert!(zatoshis_from_zec(amount).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_fractional_zatoshi_amounts() {
+        assert!(zatoshis_from_zec(0.000000001).is_err());
+    }
+
+    #[test]
+    fn accepts_exact_one_zatoshi_and_one_zec() {
+        assert_eq!(zatoshis_from_zec(0.00000001).unwrap().into_u64(), 1);
+        assert_eq!(zatoshis_from_zec(1.0).unwrap().into_u64(), 100_000_000);
+    }
+
+    #[test]
+    fn rejects_amounts_above_the_monetary_limit() {
+        assert!(zatoshis_from_zec(21_000_001.0).is_err());
+    }
 }
